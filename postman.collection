@@ -1,0 +1,346 @@
+{
+  "info": {
+    "name": "Food Commerce API",
+    "_postman_id": "8f8c1e1d-6d9a-4f9b-9f6b-1b6c8a5a0001",
+    "description": "Full API collection for Food Commerce monolithic backend (public + admin).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "customerId",
+      "value": "c1"
+    },
+    {
+      "key": "productId",
+      "value": "p1"
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    }
+    ,
+    {
+      "key": "catalogId",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Catalog (Public)",
+      "item": [
+        {
+          "name": "List catalogs",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/catalogs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products (Public)",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products"
+          }
+        },
+        {
+          "name": "Get product detail",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory (Public)",
+      "item": [
+        {
+          "name": "Get inventory",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/inventory/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart (Public)",
+      "item": [
+        {
+          "name": "Add item to cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2,\n  \"basePrice\": 18\n}"
+            },
+            "url": "{{baseUrl}}/cart"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders (Public)",
+      "item": [
+        {
+          "name": "Create order (checkout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('orderId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pointsToUse\": 5\n}"
+            },
+            "url": "{{baseUrl}}/orders/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders (Admin)",
+      "item": [
+        {
+          "name": "List orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/orders"
+          }
+        },
+        {
+          "name": "Advance order status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/orders/{{orderId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory (Admin)",
+      "item": [
+        {
+          "name": "Get inventory (admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/inventory/{{productId}}"
+          }
+        },
+        {
+          "name": "Adjust inventory",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5\n}"
+            },
+            "url": "{{baseUrl}}/admin/inventory/{{productId}}/adjust"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog (Admin)",
+      "item": [
+        {
+          "name": "Create catalog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Low Carb\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/catalogs"
+          }
+        },
+        {
+          "name": "Activate catalog",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/catalogs/{{catalogId}}/activate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products (Admin)",
+      "item": [
+        {
+          "name": "List products (admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/products"
+          }
+        },
+        {
+          "name": "Change product price",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 20\n}"
+            },
+            "url": "{{baseUrl}}/admin/products/{{productId}}/price"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers (Public)",
+      "item": [
+        {
+          "name": "Get customer profile",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/customers/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers (Admin)",
+      "item": [
+        {
+          "name": "Get customer (admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/customers/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loyalty",
+      "item": [
+        {
+          "name": "Get loyalty points",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/loyalty/{{customerId}}"
+          }
+        },
+        {
+          "name": "Adjust loyalty points (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points\": 10\n}"
+            },
+            "url": "{{baseUrl}}/admin/loyalty/{{customerId}}/adjust"
+          }
+        }
+      ]
+    }
+  ]
+}
