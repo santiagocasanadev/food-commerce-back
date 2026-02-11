@@ -20,10 +20,10 @@ export class CatalogService {
         await this.repository.save(c);
     }
 
-    async desactivate(id: string) {
+    async deactivate(id: string) {
         const c = await this.repository.findById(id);
         if (!c) throw new Error('Catalog not found');
-        c.desactivate();
+        c.deactivate();
         await this.repository.save(c);
     }
 

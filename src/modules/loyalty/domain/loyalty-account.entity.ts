@@ -8,14 +8,23 @@ export class LoyaltyAccount {
     return this.points;
   }
 
-  accumulate(amount: number): void {
-    this.points += Math.floor(amount);
+  addPoints(pointsToAdd: number): void {
+    if (pointsToAdd <= 0) {
+      return;
+    }
+
+    this.points += pointsToAdd;
   }
 
-  redeem(points: number): void {
-    if (points > this.points) {
-      throw new Error('Insufficient points');
+  subtractPoints(pointsToRedeem: number): void {
+    if (pointsToRedeem <= 0) {
+      return;
     }
-    this.points -= points;
+
+    if (this.points < pointsToRedeem) {
+      throw new Error('Insufficient loyalty points');
+    }
+
+    this.points -= pointsToRedeem;
   }
 }

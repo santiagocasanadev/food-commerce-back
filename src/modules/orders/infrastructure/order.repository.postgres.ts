@@ -1,34 +1,29 @@
-import { OrderItem } from '../domain/order-item.entity';
 import { getPgPool } from '../../../infrastructure/database/postgres.connection';
-import { OrderRepository } from '../domain/orders.repository';
-import { Order } from '../domain/orders.entity';
 import { PoolClient } from 'pg';
+import { OrderMapper } from '../../../infrastructure/mappers/order.mapper';
+import type { OrderRepository } from '../domain/orders.repository';
+import { Order } from '../domain/orders.entity';
 
 export class PostgresOrderRepository implements OrderRepository {
 
-  async save(order: Order, client?:PoolClient): Promise<void> {
-    await getPgPool().query(
+  async save(order: Order, client?: PoolClient): Promise<void> {
+
+    const executor = client ?? getPgPool();
+    const data = OrderMapper.toPersistence(order);
+
+    await executor.query(
       `
-      INSERT INTO orders (id, customer_id, status, total, created_at)
+      INSERT INTO orders (id,customer_id,status,total,created_at)
       VALUES ($1,$2,$3,$4,$5)
-      ON CONFLICT (id)
-      DO UPDATE SET status = $3, total = $4
       `,
-      [
-        order.id,
-        order.customerId,
-        order.getStatus(),
-        order.total,
-        order.createdAt
-      ]
+      [data.id, data.customer_id, data.status, data.total, data.created_at]
     );
 
-    await getPgPool().query('DELETE FROM order_items WHERE order_id = $1', [order.id]);
-
     for (const item of order.items) {
-      await getPgPool().query(
+      await executor.query(
         `
-        INSERT INTO order_items (id, order_id, product_id, quantity, unit_price)
+        INSERT INTO order_items
+        (id,order_id,product_id,quantity,unit_price)
         VALUES ($1,$2,$3,$4,$5)
         `,
         [
@@ -42,38 +37,35 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
-  async findById(orderId: string): Promise<Order | null> {
-    const { rows } = await getPgPool().query(
-      'SELECT * FROM orders WHERE id = $1',
-      [orderId]
-    );
-    if (!rows[0]) return null;
+  async findById(id: string, client?: PoolClient): Promise<Order | null> {
 
-    const items = await getPgPool().query(
-      `
-      SELECT product_id, quantity, unit_price
-      FROM order_items WHERE order_id = $1
-      `,
-      [orderId]
+    const executor = client ?? getPgPool();
+
+    const orderResult = await executor.query(
+      `SELECT * FROM orders WHERE id=$1`,
+      [id]
     );
 
-    return new Order(
-      rows[0].id,
-      rows[0].customer_id,
-      rows[0].status,
-      items.rows.map(
-        i => new OrderItem(i.product_id, i.quantity, Number(i.unit_price))
-      ),
-      Number(rows[0].total),
-      rows[0].created_at
+    if (!orderResult.rows.length) return null;
+
+    const itemsResult = await executor.query(
+      `SELECT * FROM order_items WHERE order_id=$1`,
+      [id]
+    );
+
+    return OrderMapper.toDomain(
+      orderResult.rows[0],
+      itemsResult.rows
     );
   }
 
-  async findAll(): Promise<Order[]> {
-    const { rows } = await getPgPool().query(
+    async findAll(client?: PoolClient): Promise<Order[]> {
+
+    const executor = client ?? getPgPool();
+    const { rows } = await executor.query(
       'SELECT id FROM orders ORDER BY created_at DESC'
     );
 
-    return Promise.all(rows.map(r => this.findById(r.id))) as Promise<Order[]>;
+    return Promise.all(rows.map(r => this.findById(r.id, executor))) as Promise<Order[]>;
   }
 }

@@ -18,21 +18,7 @@ export class InventoryService {
     return inventory.canReserve(quantity);
   }
 
-  async reserve(productId: string, quantity: number): Promise<void> {
-    const inventory = await this.repository.findByProductId(productId);
-    if (!inventory) {
-      throw new Error('Inventory not found');
-    }
-    inventory.reserve(quantity);
-    await this.repository.save(inventory);
-  }
-
   async adjust(productId: string, quantity: number): Promise<void> {
-    const inventory = await this.repository.findByProductId(productId);
-    if (!inventory) {
-      throw new Error('Inventory not found');
-    }
-    inventory.adjust(quantity);
-    await this.repository.save(inventory);
+    await this.repository.adjust(productId, quantity);
   }
 }

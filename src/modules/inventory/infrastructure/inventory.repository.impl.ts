@@ -1,7 +1,7 @@
 import { InventoryRepository } from '../domain/inventory.repository';
 import { Inventory } from '../domain/inventory.entity';
 
-export class InMemoryInventoryRepository implements InventoryRepository {
+export class InMemoryInventoryRepository {
   private readonly store = new Map<string, Inventory>([
     ['p1', new Inventory('p1', 10, 0)],
     ['p2', new Inventory('p2', 5, 0)],

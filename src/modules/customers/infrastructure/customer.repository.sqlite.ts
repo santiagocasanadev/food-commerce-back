@@ -2,7 +2,7 @@ import { sqliteDb } from '../../../infrastructure/database/sqlite.connection';
 import { Customer } from '../domain/customers.entity';
 import { CustomerRepository } from '../domain/customers.repository';
 
-export class SqliteCustomerRepository implements CustomerRepository {
+export class SqliteCustomerRepository {
   async findById(id: string): Promise<Customer | null> {
     const row = sqliteDb.prepare(`
       SELECT id, name, email, address

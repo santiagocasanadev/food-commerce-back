@@ -2,7 +2,7 @@ import { InventoryRepository } from '../domain/inventory.repository';
 import { Inventory } from '../domain/inventory.entity';
 import { sqliteDb } from '../../../infrastructure/database/sqlite.connection';
 
-export class SqliteInventoryRepository implements InventoryRepository {
+export class SqliteInventoryRepository {
 
   async findByProductId(productId: string): Promise<Inventory | null> {
     const r = sqliteDb.prepare(`

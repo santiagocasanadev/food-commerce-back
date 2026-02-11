@@ -13,7 +13,9 @@ import { PostgresInventoryRepository } from './infrastructure/inventory.reposito
     {
       provide: 'InventoryRepository',
       useClass: PostgresInventoryRepository ,
-    },],
-    exports: [InventoryService],
+    },
+    InventoryService
+  ],
+    exports: ['InventoryRepository'],
 })
 export class InventoryModule {}

@@ -1,40 +1,85 @@
 import { InventoryRepository } from '../domain/inventory.repository';
-import { Inventory } from '../domain/inventory.entity';
-import { getPgPool } from '../../../infrastructure/database/postgres.connection';
 import { PoolClient } from 'pg';
+import { getPgPool } from '../../../infrastructure/database/postgres.connection';
+import { InventoryMapper } from '../../../infrastructure/mappers/inventory.mapper';
 
 export class PostgresInventoryRepository implements InventoryRepository {
 
-  async findByProductId(productId: string): Promise<Inventory | null> {
-    const { rows } = await getPgPool().query(
+  async findByProductId(productId: string, client?: PoolClient) {
+    const executor = client ?? getPgPool();
+
+    const { rows } = await executor.query(
+      `SELECT * FROM inventory WHERE product_id=$1`,
+      [productId]
+    );
+
+    if (!rows.length) return null;
+
+    return InventoryMapper.toDomain(rows[0]);
+  }
+
+  async reserve(productId: string, quantity: number, client: PoolClient): Promise<void> {
+    const result = await client.query(
       `
-      SELECT product_id, available_quantity, reserved_quantity
-      FROM inventory WHERE product_id = $1
+      SELECT available_quantity
+      FROM inventory
+      WHERE product_id=$1
+      FOR UPDATE
       `,
       [productId]
     );
 
-    const r = rows[0];
-    return r
-      ? new Inventory(r.product_id, r.available_quantity, r.reserved_quantity)
-      : null;
-  }
+    if (!result.rows.length)
+      throw new Error('Inventory not found');
 
-  async save(inv: Inventory, client?:PoolClient): Promise<void> {
-    await getPgPool().query(
+    const available = result.rows[0].available_quantity;
+
+    if (available < quantity)
+      throw new Error('Insufficient stock');
+
+    await client.query(
       `
-      INSERT INTO inventory (product_id, available_quantity, reserved_quantity)
-      VALUES ($1,$2,$3)
-      ON CONFLICT (product_id)
-      DO UPDATE SET
-        available_quantity = $2,
-        reserved_quantity = $3
+      UPDATE inventory
+      SET available_quantity = available_quantity - $1
+      WHERE product_id=$2
       `,
-      [
-        inv['productId'],
-        inv.getAvailable(),
-        inv['reservedQuantity']
-      ]
+      [quantity, productId]
     );
   }
+
+  async adjust(productId: string, quantity: number, client?: PoolClient): Promise<void> {
+    const executor = client ?? getPgPool();
+
+    // Race Condition block
+    const result = await executor.query(
+      `
+    SELECT available_quantity
+    FROM inventory
+    WHERE product_id = $1
+    FOR UPDATE
+    `,
+      [productId]
+    );
+
+    if (!result.rows.length) {
+      throw new Error('Inventory not found');
+    }
+
+    const newQuantity =
+      result.rows[0].available_quantity + quantity;
+
+    if (newQuantity < 0) {
+      throw new Error('Inventory cannot be negative');
+    }
+
+    await executor.query(
+      `
+    UPDATE inventory
+    SET available_quantity = $1
+    WHERE product_id = $2
+    `,
+      [newQuantity, productId]
+    );
+  }
+
 }

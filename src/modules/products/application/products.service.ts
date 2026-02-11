@@ -27,10 +27,10 @@ export class ProductsService {
 		await this.repository.save(p);
 	}
 
-	async desactivate(id: string) {
+	async deactivate(id: string) {
 		const p = await this.repository.findById(id);
 		if (!p) throw new Error('Product not found');
-		p.desactivate();
+		p.deactivate();
 		await this.repository.save(p);
 	}
 

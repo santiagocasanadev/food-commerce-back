@@ -1,62 +1,60 @@
 import { CartRepository } from '../domain/cart.repository';
 import { Cart } from '../domain/cart.entity';
-import { CartItem } from '../domain/cart-item.entity';
 import { getPgPool } from '../../../infrastructure/database/postgres.connection';
 import { PoolClient } from 'pg';
+import { CartMapper } from '../../../infrastructure/mappers/cart.mapper';
 
 export class PostgresCartRepository implements CartRepository {
 
-  async findActiveByCustomer(customerId: string): Promise<Cart | null> {
-    const { rows } = await getPgPool().query(
-      `
-      SELECT id, status
-      FROM carts
-      WHERE customer_id = $1 AND status = 'ACTIVE'
-      `,
+  async findActiveByCustomer(
+    customerId: string,
+    client?: PoolClient
+  ): Promise<Cart | null> {
+
+    const executor = client ?? getPgPool();
+
+    const cartResult = await executor.query(
+      `SELECT * FROM carts WHERE customer_id=$1 AND status='ACTIVE'`,
       [customerId]
     );
 
-    const cartRow = rows[0];
-    if (!cartRow) return null;
+    if (!cartResult.rows.length) return null;
 
-    const items = await getPgPool().query(
-      `
-      SELECT product_id, quantity, unit_price
-      FROM cart_items WHERE cart_id = $1
-      `,
+    const cartRow = cartResult.rows[0];
+
+    const itemsResult = await executor.query(
+      `SELECT * FROM cart_items WHERE cart_id=$1`,
       [cartRow.id]
     );
 
-    const cart = new Cart(cartRow.id, customerId, cartRow.status);
-    items.rows.forEach(i =>
-      cart.addItem(new CartItem(i.product_id, i.quantity, Number(i.unit_price)))
-    );
-
-    return cart;
+    return CartMapper.toDomain(cartRow, itemsResult.rows);
   }
 
-  async save(cart: Cart, client?:PoolClient): Promise<void> {
-    await getPgPool().query(
-      `
-      INSERT INTO carts (id, customer_id, status)
-      VALUES ($1,$2,$3)
-      ON CONFLICT (id)
-      DO UPDATE SET status = $3
-      `,
-      [cart['id'], cart['customerId'], cart['status']]
+  async save(cart: Cart, client?: PoolClient): Promise<void> {
+
+    const executor = client ?? getPgPool();
+
+    await executor.query(
+      `UPDATE carts SET status=$1 WHERE id=$2`,
+      [cart.getStatus, cart.id]
     );
 
-    await getPgPool().query('DELETE FROM cart_items WHERE cart_id = $1', [cart['id']]);
+    // simplificación: borrar y reinsertar items
+    await executor.query(
+      `DELETE FROM cart_items WHERE cart_id=$1`,
+      [cart.id]
+    );
 
     for (const item of cart.getItems()) {
-      await getPgPool().query(
+      await executor.query(
         `
-        INSERT INTO cart_items (id, cart_id, product_id, quantity, unit_price)
+        INSERT INTO cart_items
+        (id,cart_id,product_id,quantity,unit_price)
         VALUES ($1,$2,$3,$4,$5)
         `,
         [
           crypto.randomUUID(),
-          cart['id'],
+          cart.id,
           item.productId,
           item.quantity,
           item.unitPrice

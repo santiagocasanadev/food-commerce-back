@@ -7,6 +7,8 @@ let pool: Pool | null = null;
 
 export async function initPostgres(): Promise<void> {
   const creds = await getDbCredentials();
+  
+  const caPath = path.join(process.cwd(), 'certs', 'global-bundle.pem');
 
   pool = new Pool({
     host: creds.host,
@@ -15,10 +17,7 @@ export async function initPostgres(): Promise<void> {
     password: creds.password,
     database: creds.dbname,
     ssl: {
-      rejectUnauthorized: true,
-      ca: fs.readFileSync(
-        path.join(process.cwd(), 'certs', 'global-bundle.pem')
-      ).toString()
+      ca: fs.readFileSync(caPath).toString(),
     },
     max: 10,
     idleTimeoutMillis: 30000,

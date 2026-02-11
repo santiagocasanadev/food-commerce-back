@@ -35,7 +35,7 @@ export class SqliteProductRepository implements ProductsRepository {
         active = excluded.active,
         catalog_id = excluded.catalog_id
     `).run(
-      p.id, p.name, p.description, p.getPrice(), p.isActive() ? 1 : 0, p.catalogId
+      p.id, p.name, p.description, p.getBasePrice(), p.getStatus() ? 1 : 0, p.catalogId
     );
   }
 }

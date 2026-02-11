@@ -20,14 +20,17 @@ export class PostgresLoyaltyRepository implements LoyaltyRepository {
     return new LoyaltyAccount(rows[0].customer_id, rows[0].points);
   }
 
-  async save(account: LoyaltyAccount, client?:PoolClient): Promise<void> {
-    await getPgPool().query(
+  async save(account: LoyaltyAccount, client?: PoolClient): Promise<void> {
+
+    const executor = client ?? getPgPool();
+
+    await executor.query(
       `
-      INSERT INTO loyalty_accounts (customer_id, points)
-      VALUES ($1,$2)
-      ON CONFLICT (customer_id)
-      DO UPDATE SET points = $2
-      `,
+    INSERT INTO loyalty_accounts (customer_id, points)
+    VALUES ($1,$2)
+    ON CONFLICT (customer_id)
+    DO UPDATE SET points=$2
+    `,
       [account.customerId, account.getPoints()]
     );
   }
