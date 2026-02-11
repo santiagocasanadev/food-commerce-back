@@ -1,15 +1,21 @@
-import { Controller, Post, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Param, Patch, Req, Body } from '@nestjs/common';
 import { OrdersService } from '../application/orders.service';
+import { Public } from 'src/security/decorators/public.decorator';
 
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly service: OrdersService) { }
 
-  @Post(':customerId')
-  create(@Param('customerId') customerId: string) {
-    return this.service.createFromCart(customerId);
+  @Public()
+  @Post()
+  create(@Req() req, @Body() body) {
+    return this.service.createFromCart(
+      req.user.id,
+      body.pointsToUse ?? 0
+    );
   }
-
+  
+  @Public()
   @Patch(':orderId/status')
   advance(@Param('orderId') orderId: string) {
     return this.service.advance(orderId);
