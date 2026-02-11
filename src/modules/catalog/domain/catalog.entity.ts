@@ -2,9 +2,11 @@ export class Catalog {
     constructor(
         readonly id: string,
         readonly name: string,
-        private active: boolean
+        private status: boolean
     ) { }
 
-    activate() { this.active = true; }
-    desactivate() { this.active = false; }
+    getStatus() { return this.status; }
+
+    activate() { this.status = true; }
+    deactivate() { this.status = false; }
 }

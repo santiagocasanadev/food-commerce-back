@@ -4,14 +4,14 @@ export class Product {
     readonly name: string,
     readonly description: string | null,
     private basePrice: number,
-    private active: boolean,
+    private status: boolean,
     readonly catalogId: string
   ) {}
 
-  activate() { this.active = true; }
-  desactivate() { this.active = false; }
-  changePrice(price: number) { this.basePrice = price; }
+  getBasePrice() { return this.basePrice; }
+  getStatus() { return this.status; }  
 
-  isActive() { return this.active; }
-  getPrice() { return this.basePrice; }
+  activate() { this.status = true; }
+  deactivate() { this.status = false; }
+  changePrice(price: number) { this.basePrice = price; }
 }

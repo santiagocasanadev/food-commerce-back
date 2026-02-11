@@ -9,6 +9,10 @@ export class Inventory {
     return this.availableQuantity;
   }
 
+  getReserved(): number {
+    return this.reservedQuantity;
+  }
+
   canReserve(quantity: number): boolean {
     return this.availableQuantity >= quantity;
   }

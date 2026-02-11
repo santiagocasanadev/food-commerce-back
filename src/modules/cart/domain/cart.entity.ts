@@ -8,6 +8,10 @@ export class Cart {
     private items: CartItem[] = []
   ) {}
 
+  getStatus() {
+    return this.status;
+  }
+
   addItem(item: CartItem) {
     if (this.status !== 'ACTIVE') {
       throw new Error('Cart not active');
