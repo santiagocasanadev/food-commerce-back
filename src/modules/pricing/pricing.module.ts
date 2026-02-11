@@ -4,21 +4,35 @@ import { PricingContext } from "./application/pricing.context";
 import { BasePriceStrategy } from "./domain/base-price.strategy";
 import { PercentageDiscountStrategy } from "./domain/percentage-discount.strategy";
 import { PointsDiscountStrategy } from "./domain/points-discount.strategy";
+import { PRICING_STRATEGIES } from "./constants/pricing.constants";
 
 
 @Module({
   providers: [
     PricingService,
+    PricingContext,
+    BasePriceStrategy,
+    PercentageDiscountStrategy,
+    PointsDiscountStrategy,
     {
-      provide: PricingContext,
-      useFactory: () =>
-        new PricingContext([
-          new BasePriceStrategy(),
-          new PercentageDiscountStrategy(0.1),
-          new PointsDiscountStrategy()
-        ])
+      provide: PRICING_STRATEGIES,
+      useFactory: (
+        base: BasePriceStrategy,
+        percentage: PercentageDiscountStrategy,
+        points: PointsDiscountStrategy
+      ) => [
+        base,
+        percentage,
+        points
+      ],
+      inject: [
+        BasePriceStrategy,
+        PercentageDiscountStrategy,
+        PointsDiscountStrategy
+      ]
     }
   ],
-  exports: [PricingService, PricingContext],
+  exports: [ PricingService ]
 })
 export class PricingModule {}
+
