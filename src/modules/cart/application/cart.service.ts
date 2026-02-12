@@ -39,4 +39,8 @@ export class CartService {
     await this.repository.save(cart);
     return cart;
   }
+
+  async getActiveCart(customerId: string): Promise<Cart | null> {
+    return this.repository.findActiveByCustomer(customerId);
+  }
 }
