@@ -1,0 +1,118 @@
+import * as crypto from 'crypto';
+import { JwtService } from '@nestjs/jwt';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { RefreshToken } from 'src/modules/auth/domain/refresh-token.entity';
+import type { RefreshTokenRepository } from '../domain/refresh-token.repository';
+import type { CustomerRepository } from 'src/modules/customers/domain/customers.repository';
+import { GoogleAuthService } from './google-auth.service';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly jwtService: JwtService,
+    @Inject('RefreshTokenRepository')
+    private readonly refreshTokenRepository: RefreshTokenRepository,
+    @Inject('CustomerRepository')
+    private readonly customerRepository: CustomerRepository,
+    private readonly googleAuthService: GoogleAuthService
+  ) {}
+
+  async login(userId: string, role: string) {
+    const payload = { sub: userId, role };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    const refreshToken = this.generateRefreshToken();
+    const tokenHash = this.hashToken(refreshToken);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const entity = new RefreshToken(
+      crypto.randomUUID(),
+      userId,
+      tokenHash,
+      expiresAt,
+      false
+    );
+
+    await this.refreshTokenRepository.save(entity);
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async refresh(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
+    const stored =
+      await this.refreshTokenRepository.findByHash(tokenHash);
+
+    if (!stored) {
+      throw new UnauthorizedException();
+    }
+
+    if (stored.isExpired() || stored.isRevoked()) {
+      throw new UnauthorizedException();
+    }
+
+    //ROTATION: revocar el actual
+    stored.revoke();
+    await this.refreshTokenRepository.save(stored);
+
+    //generar nuevo refresh
+    const newRefreshToken = this.generateRefreshToken();
+    const newHash = this.hashToken(newRefreshToken);
+
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 30);
+
+    const newEntity = new RefreshToken(
+      crypto.randomUUID(),
+      stored.userId,
+      newHash,
+      newExpiresAt,
+      false
+    );
+
+    await this.refreshTokenRepository.save(newEntity);
+
+    //generar nuevo access token
+    const payload = {
+      sub: stored.userId,
+      role: 'CUSTOMER'
+    };
+
+    const newAccessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    };
+  }
+
+
+  async logout(userId: string, refreshToken: string) {
+  const tokenHash = this.hashToken(refreshToken);
+  const stored =
+    await this.refreshTokenRepository.findByHash(tokenHash);
+
+  if (!stored || stored.userId !== userId)
+    throw new UnauthorizedException();
+
+  stored.revoke();
+
+  await this.refreshTokenRepository.save(stored);
+  return { success: true };
+}
+
+  private generateRefreshToken(): string {
+    return crypto.randomBytes(64).toString('hex');
+  }
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+}
+
