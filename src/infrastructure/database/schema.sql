@@ -1,4 +1,19 @@
 -- =========================
+-- Refresh tokens
+-- =========================
+CREATE TABLE refresh_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_refresh_user ON refresh_tokens(user_id);
+
+
+-- =========================
 -- Catalogs
 -- =========================
 CREATE TABLE catalogs (
