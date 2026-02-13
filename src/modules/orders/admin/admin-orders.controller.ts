@@ -12,7 +12,6 @@ import { AuditInterceptor } from 'src/infrastructure/logging/audit.interceptor';
 export class AdminOrdersController {
     constructor(private readonly service: OrdersService) { }
 
-    @Roles(Role.ADMIN)
     @Get()
     listOrders() {
         return this.service.list();
