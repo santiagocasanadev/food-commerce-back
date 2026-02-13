@@ -29,4 +29,10 @@ export class AuthController {
   logout(@Req() req, @Body() dto: RefreshDto) {
     return this.authService.logout(req.user.id, dto.refreshToken);
   }
+
+  @Post('google')
+  @Public()
+  async googleLogin(@Body('idToken') idToken: string) {
+    return this.authService.loginWithGoogle(idToken);
+  }
 }

@@ -5,6 +5,7 @@ import { AuthController } from './api/auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { PostgresRefreshTokenRepository } from './infrastructure/refresh-token.repository.postgres';
 import { CustomersModule } from '../customers/customers.module';
+import { GoogleAuthService } from './application/google-auth.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CustomersModule } from '../customers/customers.module';
   providers: [
     AuthService,
     JwtStrategy,
+    GoogleAuthService,
     {
       provide: 'RefreshTokenRepository',
       useClass: PostgresRefreshTokenRepository,

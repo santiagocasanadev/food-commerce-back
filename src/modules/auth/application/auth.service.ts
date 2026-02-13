@@ -106,6 +106,31 @@ export class AuthService {
   return { success: true };
 }
 
+  async loginWithGoogle(idToken: string) {
+
+    const googleUser =
+      await this.googleAuthService.verifyIdToken(idToken);
+
+    // 1️⃣ Buscar usuario por email
+    let customer =
+      await this.customerRepository.findByEmail(googleUser.email);
+
+    // 2️⃣ Si no existe → crear
+    if (!customer) {
+      if (!googleUser.email || !googleUser.name || !googleUser.googleId) {
+        throw new Error('Missing required Google user fields');
+      }
+      customer = await this.customerRepository.createFromGoogle({
+        email: googleUser.email,
+        name: googleUser.name,
+        googleId: googleUser.googleId,
+      });
+    }
+
+    // 3️⃣ Generar JWT normal
+    return this.login(customer.id, 'CUSTOMER');
+  }
+
   private generateRefreshToken(): string {
     return crypto.randomBytes(64).toString('hex');
   }

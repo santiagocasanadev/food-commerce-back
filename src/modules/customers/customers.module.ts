@@ -11,8 +11,11 @@ import { PostgresCustomerRepository } from "./infrastructure/customer.repository
   ],
   providers: [
     CustomersService,
-    { provide: 'CustomerRepository', 
-      useClass: PostgresCustomerRepository }
-  ]
+    { 
+      provide: 'CustomerRepository', 
+      useClass: PostgresCustomerRepository 
+    }
+  ],
+  exports: ['CustomerRepository'],
 })
 export class CustomersModule {}

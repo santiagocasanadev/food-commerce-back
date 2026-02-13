@@ -15,7 +15,7 @@ export class PostgresCustomerRepository implements CustomerRepository {
     );
 
     const r = rows[0];
-    return r ? new Customer(r.id, r.name, r.email, r.address) : null;
+    return r ? new Customer(r.id, r.name, r.email, r.address, r.google_id) : null;
   }
 
   async save(customer: Customer, client?: PoolClient): Promise<void> {
@@ -40,5 +40,54 @@ export class PostgresCustomerRepository implements CustomerRepository {
     ]
   );
 }
+
+  async findByEmail(email: string): Promise<Customer | null> {
+    const result = await getPgPool().query(
+      `
+    SELECT * FROM customers
+    WHERE email = $1
+    LIMIT 1
+    `,
+      [email]
+    );
+
+    if (!result.rows.length) return null;
+
+    const row = result.rows[0];
+
+    return new Customer(
+      row.id,
+      row.name,
+      row.email,
+      row.address,
+      row.google_id
+    );
+  }
+
+
+  async createFromGoogle(data: {
+    email: string;
+    name: string;
+    googleId: string;
+  }): Promise<Customer> {
+
+    const id = crypto.randomUUID();
+
+    await getPgPool().query(
+      `
+    INSERT INTO customers (id, name, email, google_id)
+    VALUES ($1, $2, $3, $4)
+    `,
+      [id, data.name, data.email, data.googleId]
+    );
+
+    return new Customer(
+      id,
+      data.name,
+      data.email,
+      null,
+      data.googleId
+    );
+  }
 
 }
