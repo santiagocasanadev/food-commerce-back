@@ -13,10 +13,10 @@ export class PostgresOrderRepository implements OrderRepository {
 
     await executor.query(
       `
-      INSERT INTO orders (id,customer_id,status,total,created_at)
-      VALUES ($1,$2,$3,$4,$5)
+      INSERT INTO orders (id,customer_id,status,total,created_at,idempotency_key)
+      VALUES ($1,$2,$3,$4,$5,$6)
       `,
-      [data.id, data.customer_id, data.status, data.total, data.created_at]
+      [data.id, data.customer_id, data.status, data.total, data.created_at, data.idempotency_key]
     );
 
     for (const item of order.items) {
@@ -67,5 +67,31 @@ export class PostgresOrderRepository implements OrderRepository {
     );
 
     return Promise.all(rows.map(r => this.findById(r.id, executor))) as Promise<Order[]>;
+  }
+
+  
+  async findByIdempotencyKey(key: string): Promise<Order | null> {
+    const pool = getPgPool();
+    const orderResult = await pool.query(
+      `
+    SELECT * FROM orders
+    WHERE idempotency_key = $1
+    LIMIT 1
+    `,
+      [key]
+    );
+
+    if (!orderResult.rows.length) return null;
+
+    const orderRow = orderResult.rows[0];
+    const itemsResult = await pool.query(
+      `
+    SELECT * FROM order_items
+    WHERE order_id = $1
+    `,
+      [orderRow.id]
+    );
+
+    return OrderMapper.toDomain(orderRow, itemsResult.rows);
   }
 }

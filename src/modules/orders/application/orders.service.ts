@@ -6,7 +6,7 @@ import { LoyaltyService } from "src/modules/loyalty/application/loyalty.service"
 import { PricingService } from "src/modules/pricing/application/pricing.service";
 import { Order } from "../domain/orders.entity";
 import { OrderItem } from "../domain/order-item.entity";
-import { Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
 import { UnitOfWork } from "src/infrastructure/database/unit-of-work";
 import { PricingResult } from "src/modules/pricing/domain/pricing-result";
 
@@ -29,15 +29,24 @@ export class OrdersService {
 
   async createFromCart(
     customerId: string,
-    pointsToUse = 0
+    pointsToUse = 0,
+    idempotencyKey?: string
   ): Promise<Order> {
-
     return this.unitOfWork.execute(async (client) => {
 
       // 1. Obtener carrito activo
       const cart = await this.cartRepository.findActiveByCustomer(customerId, client);
       if (!cart) {
-        throw new Error('No active cart');
+        throw new BadRequestException('No active cart');
+      }
+
+      if (!idempotencyKey) {
+        throw new BadRequestException('Idempotency-Key required');
+      }
+      const existing =
+        await this.orderRepository.findByIdempotencyKey(idempotencyKey);
+      if (existing) {
+        return existing;
       }
 
       // 2. Mapear items
@@ -72,7 +81,8 @@ export class OrdersService {
         'PAID',
         items,
         pricingResult.total,
-        new Date()
+        new Date(),
+        idempotencyKey
       );
 
       await this.orderRepository.save(order, client);
@@ -85,16 +95,13 @@ export class OrdersService {
     });
   }
 
-
-
-
   async advance(orderId: string): Promise<Order> {
 
     return this.unitOfWork.execute(async (client) => {
 
       const order = await this.orderRepository.findById(orderId, client);
       if (!order) {
-        throw new Error('Order not found');
+        throw new BadRequestException('Order not found');
       }
 
       order.advanceStatus();
@@ -117,7 +124,6 @@ export class OrdersService {
       return order;
     });
   }
-
 
   async list(): Promise<Order[]> {
     return this.orderRepository.findAll();

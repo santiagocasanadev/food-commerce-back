@@ -13,7 +13,8 @@ export class Order {
     private status: OrderStatus,
     readonly items: OrderItem[],
     readonly total: number,
-    readonly createdAt: Date
+    readonly createdAt: Date,
+    readonly idempotencyKey?: string
   ) {}
 
   getStatus(): OrderStatus {

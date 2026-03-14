@@ -30,7 +30,8 @@ export class OrderMapper {
       customer_id: order.customerId,
       status: order.getStatus(),
       total: order.total,
-      created_at: order.createdAt
+      created_at: order.createdAt,
+      idempotency_key: order.idempotencyKey
     };
   }
 }
