@@ -5,6 +5,7 @@ import { RefreshToken } from 'src/modules/auth/domain/refresh-token.entity';
 import type { RefreshTokenRepository } from '../domain/refresh-token.repository';
 import type { CustomerRepository } from 'src/modules/customers/domain/customers.repository';
 import { GoogleAuthService } from './google-auth.service';
+import { Role } from 'src/security/roles.enum';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +18,7 @@ export class AuthService {
     private readonly googleAuthService: GoogleAuthService
   ) {}
 
-  async login(userId: string, role: string) {
+  async login(userId: string, role: Role) {
     const payload = { sub: userId, role };
 
     const accessToken = this.jwtService.sign(payload);
@@ -80,7 +81,7 @@ export class AuthService {
     //generar nuevo access token
     const payload = {
       sub: stored.userId,
-      role: 'CUSTOMER'
+      role: 'ADMIN'
     };
 
     const newAccessToken = this.jwtService.sign(payload);
@@ -128,7 +129,7 @@ export class AuthService {
     }
 
     // 3️⃣ Generar JWT normal
-    return this.login(customer.id, 'CUSTOMER');
+    return this.login(customer.id, customer.role);
   }
 
   private generateRefreshToken(): string {

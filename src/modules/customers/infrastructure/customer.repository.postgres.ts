@@ -1,3 +1,4 @@
+import { Role } from 'src/security/roles.enum';
 import { getPgPool } from '../../../infrastructure/database/postgres.connection';
 import { Customer } from '../domain/customers.entity';
 import { CustomerRepository } from '../domain/customers.repository';
@@ -15,7 +16,7 @@ export class PostgresCustomerRepository implements CustomerRepository {
     );
 
     const r = rows[0];
-    return r ? new Customer(r.id, r.name, r.email, r.address, r.google_id) : null;
+    return r ? new Customer(r.id, r.name, r.email, r.address, r.google_id, r.role) : null;
   }
 
   async save(customer: Customer, client?: PoolClient): Promise<void> {
@@ -24,8 +25,8 @@ export class PostgresCustomerRepository implements CustomerRepository {
 
   await executor.query(
     `
-    INSERT INTO customers (id,name,email,address)
-    VALUES ($1,$2,$3,$4)
+    INSERT INTO customers (id,name,email,address,google_id,role)
+    VALUES ($1,$2,$3,$4,$5,$6)
     ON CONFLICT (id)
     DO UPDATE SET
       name=$2,
@@ -60,7 +61,8 @@ export class PostgresCustomerRepository implements CustomerRepository {
       row.name,
       row.email,
       row.address,
-      row.google_id
+      row.google_id,
+      row.role
     );
   }
 
@@ -69,16 +71,17 @@ export class PostgresCustomerRepository implements CustomerRepository {
     email: string;
     name: string;
     googleId: string;
+    role: Role;
   }): Promise<Customer> {
 
     const id = crypto.randomUUID();
 
     await getPgPool().query(
       `
-    INSERT INTO customers (id, name, email, google_id)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO customers (id, name, email, google_id, role)
+    VALUES ($1, $2, $3, $4, $5)
     `,
-      [id, data.name, data.email, data.googleId]
+      [id, data.name, data.email, data.googleId, data.role]
     );
 
     return new Customer(
@@ -86,7 +89,8 @@ export class PostgresCustomerRepository implements CustomerRepository {
       data.name,
       data.email,
       null,
-      data.googleId
+      data.googleId,
+      data.role
     );
   }
 
