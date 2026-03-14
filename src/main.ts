@@ -9,6 +9,8 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { initSchema } from './infrastructure/database/sqlite.connection';
 import { initPostgres } from './infrastructure/database/postgres.connection';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   // Usa SQLite en desarrollo local. Postgres requiere AWS credenciales.
@@ -18,6 +20,16 @@ async function bootstrap() {
   }
   initSchema();
   const app = await NestFactory.create(AppModule);
+
+  app.useGlobalFilters(new GlobalExceptionFilter);
+
+  app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true
+  })
+);
 
   try {
     const openapiPath = join(process.cwd(), 'contracts', 'openapi.yml');

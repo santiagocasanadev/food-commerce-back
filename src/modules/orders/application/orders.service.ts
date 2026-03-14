@@ -27,6 +27,8 @@ export class OrdersService {
     private readonly pricingService: PricingService
   ) { }
 
+  private readonly logger = new Logger(OrdersService.name);
+
   async createFromCart(
     customerId: string,
     pointsToUse = 0,
@@ -36,6 +38,9 @@ export class OrdersService {
 
       // 1. Obtener carrito activo
       const cart = await this.cartRepository.findActiveByCustomer(customerId, client);
+      
+      this.logger.log(`Creating order for customer ${customerId}`);
+
       if (!cart) {
         throw new BadRequestException('No active cart');
       }
@@ -90,6 +95,8 @@ export class OrdersService {
       // 7. Cerrar carrito
       cart.checkout();
       await this.cartRepository.save(cart, client);
+
+      this.logger.log(`Order created successfully: ${order.id}`);
 
       return order;
     });

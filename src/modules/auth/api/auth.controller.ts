@@ -6,6 +6,7 @@ import { Throttle } from '@nestjs/throttler/dist/throttler.decorator';
 import { RefreshDto } from '../dto/refresh.dto';
 import { JwtAuthGuard } from '../../../security/guards/jwt-auth.guard';
 import { AuthService } from '../application/auth.service';
+import { GoogleLoginDto } from './dto/google-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -32,7 +33,7 @@ export class AuthController {
 
   @Post('google')
   @Public()
-  async googleLogin(@Body('idToken') idToken: string) {
-    return this.authService.loginWithGoogle(idToken);
+  async googleLogin(@Body() dto: GoogleLoginDto) {
+    return this.authService.loginWithGoogle(dto.idToken);
   }
 }
