@@ -1,6 +1,6 @@
 import type { InventoryRepository } from '../domain/inventory.repository';
 import { Inventory } from '../domain/inventory.entity';
-import { Inject } from '@nestjs/common';
+import { Inject, NotFoundException } from '@nestjs/common';
 
 export class InventoryService {
   constructor(
@@ -14,7 +14,9 @@ export class InventoryService {
 
   async canReserve(productId: string, quantity: number): Promise<boolean> {
     const inventory = await this.repository.findByProductId(productId);
-    if (!inventory) return false;
+    if (!inventory){
+      throw new NotFoundException(`Inventory not found for product ${productId}`);
+    }
     return inventory.canReserve(quantity);
   }
 
