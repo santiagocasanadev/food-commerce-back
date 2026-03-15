@@ -14,6 +14,6 @@ import { PostgresCartRepository } from './infrastructure/cart.repository.postgre
       useClass: PostgresCartRepository,
     },
   ],
-  exports: ['CartRepository'],
+  exports: ['CartRepository', CartService],
 })
 export class CartModule {}

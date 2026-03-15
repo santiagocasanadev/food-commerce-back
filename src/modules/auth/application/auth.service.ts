@@ -5,12 +5,13 @@ import { RefreshToken } from 'src/modules/auth/domain/refresh-token.entity';
 import type { RefreshTokenRepository } from '../domain/refresh-token.repository';
 import type { CustomerRepository } from 'src/modules/customers/domain/customers.repository';
 import { GoogleAuthService } from './google-auth.service';
-import { Role } from 'src/security/roles.enum';
+import { CartService } from 'src/modules/cart/application/cart.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
+    private readonly cartService: CartService,
     @Inject('RefreshTokenRepository')
     private readonly refreshTokenRepository: RefreshTokenRepository,
     @Inject('CustomerRepository')
@@ -18,8 +19,18 @@ export class AuthService {
     private readonly googleAuthService: GoogleAuthService
   ) {}
 
-  async login(userId: string, role: Role) {
-    const payload = { sub: userId, role };
+  async login(userId: string, guestId?: string) {
+    
+    const customer = await this.customerRepository.findById(userId);
+
+    if (!customer) {
+      throw new UnauthorizedException();
+    }
+
+    const payload = {
+      sub: customer.id,
+      role: customer.role
+    };
 
     const accessToken = this.jwtService.sign(payload);
 
@@ -38,6 +49,14 @@ export class AuthService {
     );
 
     await this.refreshTokenRepository.save(entity);
+
+    if (guestId) {
+      await this.cartService.mergeCart(
+        guestId,
+        customer.id
+      );
+    }
+
     return {
       accessToken,
       refreshToken,
@@ -78,10 +97,16 @@ export class AuthService {
 
     await this.refreshTokenRepository.save(newEntity);
 
-    //generar nuevo access token
+    const customer =
+      await this.customerRepository.findById(stored.userId);
+
+    if (!customer) {
+      throw new UnauthorizedException();
+    }
+
     const payload = {
-      sub: stored.userId,
-      role: 'ADMIN'
+      sub: customer.id,
+      role: customer.role
     };
 
     const newAccessToken = this.jwtService.sign(payload);
@@ -129,7 +154,7 @@ export class AuthService {
     }
 
     // 3️⃣ Generar JWT normal
-    return this.login(customer.id, customer.role);
+    return this.login(customer.id);
   }
 
   private generateRefreshToken(): string {

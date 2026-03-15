@@ -6,6 +6,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PostgresRefreshTokenRepository } from './infrastructure/refresh-token.repository.postgres';
 import { CustomersModule } from '../customers/customers.module';
 import { GoogleAuthService } from './application/google-auth.service';
+import { CartModule } from '../cart/cart.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { GoogleAuthService } from './application/google-auth.service';
       },
     }),
     CustomersModule,
+    CartModule
   ],
   providers: [
     AuthService,

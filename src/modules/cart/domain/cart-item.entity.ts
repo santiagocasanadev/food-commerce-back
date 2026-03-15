@@ -1,7 +1,15 @@
 export class CartItem {
   constructor(
     readonly productId: string,
-    readonly quantity: number,
+    private quantity: number,
     readonly unitPrice: number
   ) {}
+
+  getQuantity() {
+    return this.quantity;
+  }
+
+  increaseQuantity(qty: number) {
+    this.quantity += qty;
+  }
 }

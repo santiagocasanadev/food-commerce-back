@@ -5,14 +5,10 @@ export class CartMapper {
 
   static toDomain(cartRow: any, itemRows: any[]): Cart {
 
-    const cart = new Cart(
-      cartRow.id,
-      cartRow.customer_id,
-      cartRow.status
-    );
+    const items: CartItem[] = [];
 
     for (const row of itemRows) {
-      cart.addItem(
+      items.push(
         new CartItem(
           row.product_id,
           row.quantity,
@@ -21,14 +17,21 @@ export class CartMapper {
       );
     }
 
-    return cart;
+    return new Cart(
+      cartRow.id,
+      cartRow.customer_id ?? null,
+      cartRow.guest_id ?? null,
+      cartRow.status,
+      items
+    );
   }
 
   static toPersistence(cart: Cart) {
 
     return {
       id: cart.id,
-      customer_id: cart.customerId,
+      customer_id: cart.getCustomerId,
+      guest_id: cart.getGuestId,
       status: cart.getStatus(),
     };
   }
