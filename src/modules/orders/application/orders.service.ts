@@ -9,6 +9,7 @@ import { OrderItem } from "../domain/order-item.entity";
 import { BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
 import { UnitOfWork } from "src/infrastructure/database/unit-of-work";
 import { PricingResult } from "src/modules/pricing/domain/pricing-result";
+import { PaginatedResponse } from "src/common/dto/paginated-response.dto";
 
 @Injectable()
 export class OrdersService {
@@ -56,7 +57,7 @@ export class OrdersService {
 
       // 2. Mapear items
       const items = cart.getItems().map(
-        i => new OrderItem(i.productId, i.quantity, i.unitPrice)
+        i => new OrderItem(i.productId, i.getQuantity(), i.unitPrice)
       );
 
       // 3. Calcular total base
@@ -134,5 +135,21 @@ export class OrdersService {
 
   async list(): Promise<Order[]> {
     return this.orderRepository.findAll();
+  }
+
+  async listCustomerOrders(
+    customerId: string,
+    page: number,
+    limit: number
+  ): Promise<PaginatedResponse<Order>> {
+
+    const { data, total } =
+      await this.orderRepository.findByCustomerPaginated(
+        customerId,
+        page,
+        limit
+      );
+
+    return new PaginatedResponse(data, page, limit, total);
   }
 }

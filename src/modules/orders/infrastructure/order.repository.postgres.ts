@@ -94,4 +94,66 @@ export class PostgresOrderRepository implements OrderRepository {
 
     return OrderMapper.toDomain(orderRow, itemsResult.rows);
   }
+
+  async findByCustomerPaginated(customerId: string, page: number, limit: number): Promise<{ data: Order[]; total: number }> {
+
+    const offset = (page - 1) * limit;
+    const executor = getPgPool();
+
+    const ordersResult = await executor.query(
+      `
+    SELECT *
+    FROM orders
+    WHERE customer_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+    OFFSET $3
+    `,
+      [customerId, limit, offset]
+    );
+
+    if (!ordersResult.rows.length) {
+      return { data: [], total: 0 };
+    }
+
+    const orderIds = ordersResult.rows.map(o => o.id);
+
+    const itemsResult = await executor.query(
+      `
+    SELECT *
+    FROM order_items
+    WHERE order_id = ANY($1)
+    `,
+      [orderIds]
+    );
+
+    const itemsByOrder: Record<string, any[]> = {};
+
+    for (const row of itemsResult.rows) {
+      if (!itemsByOrder[row.order_id]) {
+        itemsByOrder[row.order_id] = [];
+      }
+      itemsByOrder[row.order_id].push(row);
+    }
+
+    const orders = ordersResult.rows.map(orderRow =>
+      OrderMapper.toDomain(
+        orderRow,
+        itemsByOrder[orderRow.id] ?? []
+      )
+    );
+
+    const countResult = await executor.query(
+      `
+    SELECT COUNT(*) FROM orders
+    WHERE customer_id = $1
+    `,
+      [customerId]
+    );
+
+    return {
+      data: orders,
+      total: Number(countResult.rows[0].count)
+    };
+  }
 }
