@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Headers } from '@nestjs/common';
 
 import { LoginDto } from '../dto/login.dto';
 import { Public } from '../../../security/decorators/public.decorator';
@@ -15,8 +15,8 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.userId, dto.role);
+  login(@Body() dto: LoginDto, @Headers('x-guest-id') guestId: string) {
+    return this.authService.login(dto.userId, guestId);
   }
 
   @Public()

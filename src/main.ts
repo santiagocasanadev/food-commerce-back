@@ -24,12 +24,12 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter);
 
   app.useGlobalPipes(
-  new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true
-  })
-);
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true
+    })
+  );
 
   try {
     const openapiPath = join(process.cwd(), 'contracts', 'openapi.yml');
