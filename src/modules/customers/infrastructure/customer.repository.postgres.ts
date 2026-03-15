@@ -9,7 +9,7 @@ export class PostgresCustomerRepository implements CustomerRepository {
   async findById(id: string): Promise<Customer | null> {
     const { rows } = await getPgPool().query(
       `
-      SELECT id, name, email, address
+      SELECT id, name, email, address, google_id, role
       FROM customers WHERE id = $1
       `,
       [id]
@@ -31,13 +31,14 @@ export class PostgresCustomerRepository implements CustomerRepository {
     DO UPDATE SET
       name=$2,
       email=$3,
-      address=$4
     `,
     [
       customer.id,
       customer.name,
       customer.email,
-      customer.address
+      customer.address,
+      customer.googleId,
+      customer.role
     ]
   );
 }
