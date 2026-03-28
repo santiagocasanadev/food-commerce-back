@@ -1,30 +1,18 @@
 import { Pool } from 'pg';
-import fs from 'fs';
-import path from 'path';
-import { getDbCredentials } from './postgres.secrets';
 
 let pool: Pool | null = null;
 
 export async function initPostgres(): Promise<void> {
-  const creds = await getDbCredentials();
-  
-  const caPath = path.join(process.cwd(), 'certs', 'global-bundle.pem');
-
   pool = new Pool({
-    host: creds.host,
-    port: creds.port,
-    user: creds.username,
-    password: creds.password,
-    database: creds.dbname,
+    connectionString: process.env.DATABASE_URL,
     ssl: {
-      ca: fs.readFileSync(caPath).toString(),
+      rejectUnauthorized: false, // clave para Supabase
     },
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
+    connectionTimeoutMillis: 10000,
   });
 
-  // Smoke test obligatorio
   await pool.query('SELECT 1');
 }
 
