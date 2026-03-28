@@ -5,7 +5,10 @@ export class User {
     readonly id: string,
     private email: string | null,
     private name: string,
-    private avatarUrl: string | null,
+    private imageUrl: string | null,
+    private address: string | null,
+    private birthDate: Date | null,
+    private gender: string | null,
     private emailVerified: boolean,
     readonly createdAt: Date,
     private updatedAt: Date,
@@ -24,8 +27,20 @@ export class User {
     return this.name;
   }
 
-  getAvatarUrl(): string | null {
-    return this.avatarUrl;
+  getImageUrl(): string | null {
+    return this.imageUrl;
+  }
+
+  getAddress(): string | null {
+    return this.address;
+  }
+
+  getBirthDate(): Date | null {
+    return this.birthDate;
+  }
+
+  getGender(): string | null {
+    return this.gender;
   }
 
   verifyEmail() {
@@ -44,19 +59,34 @@ export class User {
   updateProfile(data: {
     email?: string | null;
     name?: string | null;
-    avatarUrl?: string | null;
+    imageUrl?: string | null;
+    address?: string | null;
+    birthDate?: Date | null;
+    gender?: string | null;
     emailVerified?: boolean;
   }) {
     if (data.email !== undefined) {
       this.email = data.email;
     }
 
-    if (data.name) {
+    if (data.name !== undefined && data.name !== null) {
       this.name = data.name;
     }
 
-    if (data.avatarUrl !== undefined) {
-      this.avatarUrl = data.avatarUrl;
+    if (data.imageUrl !== undefined) {
+      this.imageUrl = data.imageUrl;
+    }
+
+    if (data.address !== undefined) {
+      this.address = data.address;
+    }
+
+    if (data.birthDate !== undefined) {
+      this.birthDate = data.birthDate;
+    }
+
+    if (data.gender !== undefined) {
+      this.gender = data.gender;
     }
 
     if (typeof data.emailVerified === 'boolean') {

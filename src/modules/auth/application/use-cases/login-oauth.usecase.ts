@@ -1,5 +1,6 @@
-import { Role } from 'src/security/roles.enum';
 import { Inject, Injectable } from '@nestjs/common';
+import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
+import { Role } from 'src/security/roles.enum';
 import { AUTH_INJECTION_TOKENS } from '../../constants/injection-tokens';
 import { AuthProvider } from '../../domain/authProviders';
 import type { AuthIdentityRepository } from '../../domain/repositories/auth-identity.repository';
@@ -16,6 +17,7 @@ export class LoginOAuthUseCase {
     private readonly authIdentityRepository: AuthIdentityRepository,
     @Inject(AUTH_INJECTION_TOKENS.USER_REPOSITORY)
     private readonly userRepository: UserRepository,
+    private readonly customerContextService: CustomerContextService,
     private readonly sessionService: SessionService,
   ) {}
 
@@ -45,7 +47,7 @@ export class LoginOAuthUseCase {
       user = await this.userRepository.create({
         email: profile.email ? profile.email.toLowerCase() : null,
         name: profile.name ?? this.buildFallbackName(profile.email, input.provider),
-        avatarUrl: profile.avatarUrl ?? null,
+        imageUrl: profile.avatarUrl ?? null,
         role: Role.CUSTOMER,
         emailVerified: profile.emailVerified,
       });
@@ -53,7 +55,7 @@ export class LoginOAuthUseCase {
       user.updateProfile({
         email: profile.email ? profile.email.toLowerCase() : user.getEmail(),
         name: profile.name ?? user.getName(),
-        avatarUrl: profile.avatarUrl ?? user.getAvatarUrl(),
+        imageUrl: profile.avatarUrl ?? user.getImageUrl(),
         emailVerified: profile.emailVerified,
       });
       await this.userRepository.save(user);
@@ -68,8 +70,11 @@ export class LoginOAuthUseCase {
       });
     }
 
+    const customer = await this.customerContextService.ensureCustomerByUserId(user.id);
     const session = await this.sessionService.createSession({
       userId: user.id,
+      role: user.getRole(),
+      customerId: customer.id,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });

@@ -9,7 +9,10 @@ export interface UserRepository {
   create(data: {
     email?: string | null;
     name: string;
-    avatarUrl?: string | null;
+    imageUrl?: string | null;
+    address?: string | null;
+    birthDate?: Date | null;
+    gender?: string | null;
     role?: Role;
     emailVerified?: boolean;
   }): Promise<User>;

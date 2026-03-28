@@ -39,7 +39,11 @@ export class PostgresUserRepository implements UserRepository {
   async create(data: {
     email?: string | null;
     name: string;
-    avatarUrl?: string | null;
+    imageUrl?: string | null;
+    address?: string | null;
+    birthDate?: Date | null;
+    gender?: string | null;
+    role?: Role;
     emailVerified?: boolean;
   }): Promise<User> {
     const id = crypto.randomUUID();
@@ -51,24 +55,30 @@ export class PostgresUserRepository implements UserRepository {
         id,
         email,
         name,
-        avatar_url,
+        image_url,
+        address,
+        birth_date,
+        gender,
         email_verified,
         created_at,
         updated_at,
         role
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
       `,
       [
         id,
         data.email ?? null,
         data.name,
-        data.avatarUrl ?? null,
+        data.imageUrl ?? null,
+        data.address ?? null,
+        data.birthDate ?? null,
+        data.gender ?? null,
         data.emailVerified ?? false,
         now,
         now,
-        Role.CUSTOMER,
+        data.role ?? Role.CUSTOMER,
       ],
     );
 
@@ -81,16 +91,26 @@ export class PostgresUserRepository implements UserRepository {
       `
     UPDATE users
     SET
-      email_verified = $1,
-      name = $2,
-      avatar_url = $3,
+      email = $1,
+      email_verified = $2,
+      name = $3,
+      image_url = $4,
+      address = $5,
+      birth_date = $6,
+      gender = $7,
+      role = $8,
       updated_at = NOW()
-    WHERE id = $4
+    WHERE id = $9
     `,
       [
+        user.getEmail(),
         user.isEmailVerified(),
         user.getName(),
-        user.getAvatarUrl(),
+        user.getImageUrl(),
+        user.getAddress(),
+        user.getBirthDate(),
+        user.getGender(),
+        user.getRole(),
         user.id
       ]
     );

@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
 import { Role } from 'src/security/roles.enum';
 import { AUTH_INJECTION_TOKENS } from '../../constants/injection-tokens';
 import { AuthProvider } from '../../domain/authProviders';
@@ -17,6 +18,7 @@ export class SignupEmailUseCase {
         private readonly authIdentityRepository: AuthIdentityRepository,
         @Inject(AUTH_INJECTION_TOKENS.PASSWORD_HASHER)
         private readonly passwordHasher: PasswordHasher,
+        private readonly customerContextService: CustomerContextService,
         private readonly sessionService: SessionService,
     ) { }
 
@@ -42,6 +44,7 @@ export class SignupEmailUseCase {
             emailVerified: false,
         });
         const passwordHash = await this.passwordHasher.hash(input.password);
+        const customer = await this.customerContextService.ensureCustomerByUserId(user.id);
 
         await this.authIdentityRepository.create({
             userId: user.id,
@@ -51,6 +54,8 @@ export class SignupEmailUseCase {
         });
         const session = await this.sessionService.createSession({
             userId: user.id,
+            role: user.getRole(),
+            customerId: customer.id,
             userAgent: input.userAgent,
             ipAddress: input.ipAddress,
         });

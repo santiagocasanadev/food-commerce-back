@@ -19,7 +19,6 @@ export class AuthService {
   async signupWithEmail(payload: {
     email: string;
     password: string;
-    name?: string;
     userAgent?: string | null;
     ipAddress?: string | null;
   }) {

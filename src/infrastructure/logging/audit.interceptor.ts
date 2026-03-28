@@ -5,7 +5,7 @@ import { tap } from "rxjs";
 export class AuditInterceptor implements NestInterceptor {
   intercept(ctx: ExecutionContext, next: CallHandler) {
     const req = ctx.switchToHttp().getRequest();
-    const user = req.user?.id ?? 'anonymous';
+    const user = req.user?.userId ?? 'anonymous';
     const path = req.url;
     return next.handle().pipe(
       tap(() => console.log(`[AUDIT] user=${user} path=${path}`))

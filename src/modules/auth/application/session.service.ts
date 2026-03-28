@@ -1,31 +1,37 @@
 import * as crypto from 'crypto';
 import { Inject, Injectable } from "@nestjs/common";
+import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
+import { Role } from 'src/security/roles.enum';
 import type { SessionRepository } from "../domain/repositories/auth-session.repository";
 import { AuthSession } from '../domain/entities/auth-session.identity';
 import { AUTH_INJECTION_TOKENS } from "../constants/injection-tokens";
 import { JwtService } from '@nestjs/jwt';
+import type { UserRepository } from '../domain/repositories/user.repository';
 
 @Injectable()
 export class SessionService {
   constructor(
     @Inject(AUTH_INJECTION_TOKENS.SESSION_REPOSITORY)
     private readonly sessionRepo: SessionRepository,
+    @Inject(AUTH_INJECTION_TOKENS.USER_REPOSITORY)
+    private readonly userRepository: UserRepository,
+    private readonly customerContextService: CustomerContextService,
     private readonly jwtService: JwtService,
   ) { }
 
   async createSession(params: {
     userId: string;
+    role?: Role;
+    customerId?: string | null;
     userAgent?: string | null;
     ipAddress?: string | null;
   }) {
-    console.log('Creating session for userId:', params.userId);
+    const claims = await this.resolveClaims(params);
     const refreshToken = this.generateRefreshToken();
     const refreshTokenHash = this.hash(refreshToken);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
-
-    console.log('Creating session in repository');
 
     await this.sessionRepo.create({
       id: crypto.randomUUID(),
@@ -35,10 +41,11 @@ export class SessionService {
       ipAddress: params.ipAddress,
       expiresAt,
     });
-    console.log('Session created in repository');
 
     const accessToken = this.jwtService.sign({
       sub: params.userId,
+      role: claims.role,
+      customerId: claims.customerId,
     });
 
     return {
@@ -46,6 +53,7 @@ export class SessionService {
       refreshToken,
       expiresAt,
       userId: params.userId,
+      customerId: claims.customerId,
     };
   }
 
@@ -99,5 +107,25 @@ export class SessionService {
 
   private hash(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  private async resolveClaims(params: {
+    userId: string;
+    role?: Role;
+    customerId?: string | null;
+  }) {
+    const user =
+      params.role === undefined
+        ? await this.userRepository.findById(params.userId)
+        : null;
+    const customer =
+      params.customerId === undefined
+        ? await this.customerContextService.ensureCustomerByUserId(params.userId)
+        : null;
+
+    return {
+      role: params.role ?? user?.getRole() ?? Role.CUSTOMER,
+      customerId: params.customerId ?? customer?.id ?? null,
+    };
   }
 }
