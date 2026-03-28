@@ -14,7 +14,7 @@ export class CartController {
   @UseGuards(OptionalJwtAuthGuard)
   async addItem(@Req() req, @Body() dto: AddItemDto) {
 
-    const customerId = req.user?.id ?? null;
+    const customerId = req.user?.customerId ?? null;
     const guestId = req.headers['x-guest-id'] ?? null;
 
     return this.service.addItem(
@@ -29,7 +29,7 @@ export class CartController {
   @UseGuards(JwtAuthGuard)
   @Get()
   async getActiveCart(@Req() req) {
-    const cart = await this.service.getActiveCart(req.user.id);
+    const cart = await this.service.getActiveCart(req.user.customerId);
 
     if (!cart) {
       throw new BadRequestException('No active cart')
@@ -37,7 +37,7 @@ export class CartController {
 
     return {
       id: cart.id,
-      customerId: cart.getCustomerId,
+      customerId: cart.getCustomerId(),
       status: cart.getStatus(),
       items: cart.getItems()
     };
@@ -47,7 +47,7 @@ export class CartController {
   @Delete()
   async clearCart(@Req() req) {
 
-    const customerId = req.user?.id ?? null;
+    const customerId = req.user?.customerId ?? null;
     const guestId = req.headers['x-guest-id'] ?? null;
 
     await this.service.clearCart(customerId, guestId);

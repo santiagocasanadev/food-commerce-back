@@ -10,7 +10,7 @@ export class OrdersController {
   @Post()
   create(@Req() req, @Headers('Idempotency-Key') idempotencyKey: string, @Body() dto: CreateOrderDto) {
     return this.service.createFromCart(
-      req.user.id,
+      req.user.customerId,
       dto.pointsToUse ?? 0,
       idempotencyKey
     );
@@ -19,7 +19,7 @@ export class OrdersController {
   @Get()
   list(@Req() req, @Query() pagination: PaginationDto) {
     return this.service.listCustomerOrders(
-      req.user.id,
+      req.user.customerId,
       pagination.page ?? 1,
       pagination.limit ?? 10
     );

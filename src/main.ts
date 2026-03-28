@@ -10,7 +10,7 @@ import { AppModule } from './app.module';
 import { initSchema } from './infrastructure/database/sqlite.connection';
 import { initPostgres } from './infrastructure/database/postgres.connection';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 
 async function bootstrap() {
   // Usa SQLite en desarrollo local. Postgres requiere AWS credenciales.
@@ -22,6 +22,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.useGlobalFilters(new GlobalExceptionFilter);
+
+  app.setGlobalPrefix('api');
+
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

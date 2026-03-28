@@ -2,17 +2,37 @@
   "info": {
     "name": "Food Commerce API",
     "_postman_id": "8f8c1e1d-6d9a-4f9b-9f6b-1b6c8a5a0001",
-    "description": "Full API collection for Food Commerce monolithic backend (public + admin).",
+    "description": "Updated collection for Food Commerce API with auth, public, customer and admin flows.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:3000"
+      "value": "http://localhost:3000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "guestId",
+      "value": "guest-demo-001"
+    },
+    {
+      "key": "userId",
+      "value": ""
     },
     {
       "key": "customerId",
-      "value": "c1"
+      "value": ""
     },
     {
       "key": "productId",
@@ -21,26 +41,213 @@
     {
       "key": "orderId",
       "value": ""
-    }
-    ,
-    {
-      "key": "catalogId",
-      "value": ""
     },
     {
-      "key": "adminToken",
+      "key": "catalogId",
       "value": ""
     }
   ],
   "item": [
     {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.accessToken || '');",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+                  "pm.collectionVariables.set('customerId', json.customerId || '');",
+                  "pm.collectionVariables.set('userId', json.user?.id || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123\",\n  \"name\": \"Demo User\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/signup/email"
+          }
+        },
+        {
+          "name": "Login Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.accessToken || '');",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+                  "pm.collectionVariables.set('customerId', json.customerId || '');",
+                  "pm.collectionVariables.set('userId', json.user?.id || '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Password123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login/email"
+          }
+        },
+        {
+          "name": "Login OAuth Google",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<google-id-token>\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login/oauth/google"
+          }
+        },
+        {
+          "name": "Login OAuth Facebook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessToken\": \"<facebook-access-token>\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login/oauth/facebook"
+          }
+        },
+        {
+          "name": "Login OAuth Apple",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<apple-id-token>\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login/oauth/apple"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.accessToken || '');",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+                  "if (json.customerId) pm.collectionVariables.set('customerId', json.customerId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
       "name": "Catalog (Public)",
       "item": [
         {
-          "name": "List catalogs",
+          "name": "List catalog",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/catalogs"
+            "url": "{{baseUrl}}/catalog"
           }
         }
       ]
@@ -77,40 +284,75 @@
       ]
     },
     {
-      "name": "Cart (Public)",
+      "name": "Cart",
       "item": [
         {
-          "name": "Add item to cart",
+          "name": "Add item as guest",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2,\n  \"basePrice\": 18\n}"
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2,\n  \"basePrice\": 18\n}"
             },
+            "url": "{{baseUrl}}/cart"
+          }
+        },
+        {
+          "name": "Get active cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/cart"
+          }
+        },
+        {
+          "name": "Clear cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "x-guest-id",
+                "value": "{{guestId}}"
+              }
+            ],
             "url": "{{baseUrl}}/cart"
           }
         }
       ]
     },
     {
-      "name": "Orders (Public)",
+      "name": "Orders",
       "item": [
         {
-          "name": "Create order (checkout)",
+          "name": "Create order",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "pm.collectionVariables.set('orderId', json.id);"
-                ]
+                  "pm.collectionVariables.set('orderId', json.id || '');"
+                ],
+                "type": "text/javascript"
               }
             }
           ],
@@ -120,13 +362,233 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "checkout-demo-001"
               }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"pointsToUse\": 5\n}"
             },
-            "url": "{{baseUrl}}/orders/{{customerId}}"
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders?page=1&limit=10"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Get customer profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/customers/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loyalty",
+      "item": [
+        {
+          "name": "Get loyalty points",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/loyalty/{{customerId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Catalog (Admin)",
+      "item": [
+        {
+          "name": "List catalogs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/catalogs"
+          }
+        },
+        {
+          "name": "Create catalog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"catalog-demo-001\",\n  \"name\": \"Low Carb\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/catalogs"
+          }
+        },
+        {
+          "name": "Activate catalog",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/catalogs/{{catalogId}}/activate"
+          }
+        },
+        {
+          "name": "Deactivate catalog",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/catalogs/{{catalogId}}/deactivate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products (Admin)",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/products"
+          }
+        },
+        {
+          "name": "Activate product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/products/{{productId}}/activate"
+          }
+        },
+        {
+          "name": "Deactivate product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/products/{{productId}}/deactivate"
+          }
+        },
+        {
+          "name": "Change product price",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 20\n}"
+            },
+            "url": "{{baseUrl}}/admin/products/{{productId}}/price"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory (Admin)",
+      "item": [
+        {
+          "name": "Get inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/inventory/{{productId}}"
+          }
+        },
+        {
+          "name": "Adjust inventory",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5\n}"
+            },
+            "url": "{{baseUrl}}/admin/inventory/{{productId}}/adjust"
           }
         }
       ]
@@ -163,139 +625,10 @@
       ]
     },
     {
-      "name": "Inventory (Admin)",
-      "item": [
-        {
-          "name": "Get inventory (admin)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/admin/inventory/{{productId}}"
-          }
-        },
-        {
-          "name": "Adjust inventory",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"quantity\": 5\n}"
-            },
-            "url": "{{baseUrl}}/admin/inventory/{{productId}}/adjust"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Catalog (Admin)",
-      "item": [
-        {
-          "name": "Create catalog",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Low Carb\"\n}"
-            },
-            "url": "{{baseUrl}}/admin/catalogs"
-          }
-        },
-        {
-          "name": "Activate catalog",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/admin/catalogs/{{catalogId}}/activate"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Products (Admin)",
-      "item": [
-        {
-          "name": "List products (admin)",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/admin/products"
-          }
-        },
-        {
-          "name": "Change product price",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{adminToken}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"price\": 20\n}"
-            },
-            "url": "{{baseUrl}}/admin/products/{{productId}}/price"
-          }
-        }
-      ]
-    },
-    {
-      "name": "Customers (Public)",
-      "item": [
-        {
-          "name": "Get customer profile",
-          "request": {
-            "method": "GET",
-            "url": "{{baseUrl}}/customers/{{customerId}}"
-          }
-        }
-      ]
-    },
-    {
       "name": "Customers (Admin)",
       "item": [
         {
-          "name": "Get customer (admin)",
+          "name": "Get customer",
           "request": {
             "method": "GET",
             "header": [
@@ -310,17 +643,23 @@
       ]
     },
     {
-      "name": "Loyalty",
+      "name": "Loyalty (Admin)",
       "item": [
         {
-          "name": "Get loyalty points",
+          "name": "Get loyalty account",
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/loyalty/{{customerId}}"
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/loyalty/{{customerId}}"
           }
         },
         {
-          "name": "Adjust loyalty points (admin)",
+          "name": "Adjust loyalty points",
           "request": {
             "method": "PATCH",
             "header": [

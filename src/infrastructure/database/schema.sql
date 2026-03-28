@@ -1,16 +1,69 @@
 -- =========================
--- Refresh tokens
+-- Auth
 -- =========================
-CREATE TABLE refresh_tokens (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  token_hash TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  revoked INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  email VARCHAR(255) UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  avatar_url TEXT,
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'ADMIN', 'OPERATOR')),
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_refresh_user ON refresh_tokens(user_id);
+CREATE TABLE auth_identities (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  provider VARCHAR(50) NOT NULL CHECK (provider IN ('email', 'google', 'facebook', 'apple')),
+  provider_user_id VARCHAR(255),
+  email VARCHAR(255),
+  password_hash TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_auth_identity_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX uq_auth_identity_provider_user
+  ON auth_identities(provider, provider_user_id);
+
+CREATE UNIQUE INDEX uq_auth_identity_email_provider
+  ON auth_identities(provider, email);
+
+CREATE TABLE auth_sessions (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  refresh_token TEXT NOT NULL,
+  user_agent TEXT,
+  ip_address VARCHAR(255),
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_auth_session_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_auth_sessions_user_id ON auth_sessions(user_id);
+CREATE UNIQUE INDEX uq_auth_sessions_refresh_token ON auth_sessions(refresh_token);
+
+CREATE TABLE email_verification_tokens (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  consumed BOOLEAN NOT NULL DEFAULT FALSE,
+  CONSTRAINT fk_email_verification_tokens_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX idx_email_verification_tokens_user_id
+  ON email_verification_tokens(user_id);
 
 
 -- =========================
@@ -56,10 +109,15 @@ CREATE TABLE inventory (
 -- =========================
 CREATE TABLE customers (
   id UUID PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  address TEXT
+  user_id UUID NOT NULL UNIQUE,
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'ADMIN', 'OPERATOR')),
+  CONSTRAINT fk_customers_user
+    FOREIGN KEY (user_id)
+    REFERENCES users(id)
+    ON DELETE CASCADE
 );
+
+CREATE INDEX idx_customers_user_id ON customers(user_id);
 
 -- =========================
 -- Carts

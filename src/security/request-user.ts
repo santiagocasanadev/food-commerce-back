@@ -1,4 +1,5 @@
 export interface RequestUser {
-  id: string;
-  role: 'CUSTOMER' | 'ADMIN';
+  userId: string;
+  customerId: string | null;
+  role: 'CUSTOMER' | 'ADMIN' | 'OPERATOR';
 }

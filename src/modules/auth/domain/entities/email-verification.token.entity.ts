@@ -1,21 +1,21 @@
-export class RefreshToken {
+export class EmailVerificationToken {
   constructor(
     readonly id: string,
     readonly userId: string,
     readonly tokenHash: string,
     readonly expiresAt: Date,
-    private revoked: boolean = false
+    private consumed: boolean,
   ) {}
 
-  isExpired(): boolean {
+  isExpired() {
     return new Date() > this.expiresAt;
   }
 
-  isRevoked(): boolean {
-    return this.revoked;
+  isConsumed() {
+    return this.consumed;
   }
 
-  revoke() {
-    this.revoked = true;
+  consume() {
+    this.consumed = true;
   }
 }
