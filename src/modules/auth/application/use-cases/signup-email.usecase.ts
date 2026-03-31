@@ -1,16 +1,19 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
 import { Role } from 'src/security/roles.enum';
 import { AUTH_INJECTION_TOKENS } from '../../constants/injection-tokens';
 import { AuthProvider } from '../../domain/authProviders';
 import type { AuthIdentityRepository } from '../../domain/repositories/auth-identity.repository';
 import type { UserRepository } from '../../domain/repositories/user.repository';
+import { SendVerificationEmailUseCase } from './email-verification.token.usecase';
 import type { PasswordHasher } from '../ports/password-hasher';
 import { AuthResponsePresenter } from '../presenters/auth-response.presenter';
 import { SessionService } from '../session.service';
 
 @Injectable()
 export class SignupEmailUseCase {
+    private readonly logger = new Logger(SignupEmailUseCase.name);
+
     constructor(
         @Inject(AUTH_INJECTION_TOKENS.USER_REPOSITORY)
         private readonly userRepository: UserRepository,
@@ -19,6 +22,7 @@ export class SignupEmailUseCase {
         @Inject(AUTH_INJECTION_TOKENS.PASSWORD_HASHER)
         private readonly passwordHasher: PasswordHasher,
         private readonly customerContextService: CustomerContextService,
+        private readonly sendVerificationEmailUseCase: SendVerificationEmailUseCase,
         private readonly sessionService: SessionService,
     ) { }
 
@@ -59,6 +63,17 @@ export class SignupEmailUseCase {
             userAgent: input.userAgent,
             ipAddress: input.ipAddress,
         });
+
+        try {
+            await this.sendVerificationEmailUseCase.execute(user.id);
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Unknown email provider error';
+            this.logger.warn(
+                `Verification email could not be sent automatically for user ${user.id}: ${message}`,
+            );
+        }
+
         return AuthResponsePresenter.withUser(session, user);
     }
 }

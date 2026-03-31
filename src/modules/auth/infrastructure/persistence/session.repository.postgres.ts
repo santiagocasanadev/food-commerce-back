@@ -61,8 +61,35 @@ export class PostgresSessionRepository implements SessionRepository {
     return rows[0] ? this.mapRow(rows[0]) : null;
   }
 
+  async findByUserId(userId: string): Promise<AuthSession[]> {
+    const { rows } = await getPgPool().query(
+      `
+      SELECT *
+      FROM auth_sessions
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      `,
+      [userId],
+    );
+
+    return rows.map((row) => this.mapRow(row));
+  }
+
   async delete(id: string): Promise<void> {
     await getPgPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [id]);
+  }
+
+  async deleteByIdAndUserId(id: string, userId: string): Promise<void> {
+    await getPgPool().query(
+      `DELETE FROM auth_sessions WHERE id = $1 AND user_id = $2`,
+      [id, userId],
+    );
+  }
+
+  async deleteByUserId(userId: string): Promise<void> {
+    await getPgPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [
+      userId,
+    ]);
   }
 
   async deleteByRefreshTokenHash(refreshTokenHash: string): Promise<void> {

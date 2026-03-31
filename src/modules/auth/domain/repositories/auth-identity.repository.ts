@@ -2,6 +2,13 @@ import { AuthProvider } from "../authProviders";
 import { AuthIdentity } from "../entities/auth-identity.entity";
 
 export interface AuthIdentityRepository {
+  findByUserId(userId: string): Promise<AuthIdentity[]>;
+
+  findByUserIdAndProvider(
+    userId: string,
+    provider: AuthProvider
+  ): Promise<AuthIdentity | null>;
+
   findByProviderUserId(
     provider: AuthProvider,
     providerUserId: string
@@ -16,4 +23,6 @@ export interface AuthIdentityRepository {
     email?: string | null;
     passwordHash?: string | null;
   }): Promise<AuthIdentity>;
+
+  save(identity: AuthIdentity): Promise<void>;
 }

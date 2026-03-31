@@ -19,14 +19,19 @@ import { BcryptPasswordHasher } from './infrastructure/security/bcrypt-password-
 import { SignupEmailUseCase } from './application/use-cases/signup-email.usecase';
 import { LoginEmailUseCase } from './application/use-cases/login-email.usecase';
 import { LoginOAuthUseCase } from './application/use-cases/login-oauth.usecase';
+import { ListIdentitiesUseCase } from './application/use-cases/list-identities.usecase';
+import { LinkOAuthIdentityUseCase } from './application/use-cases/link-oauth-identity.usecase';
 import { LogoutUseCase } from './application/use-cases/logout.usecase';
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session.usecase';
+import { RequestPasswordResetUseCase } from './application/use-cases/request-password-reset.usecase';
 import { VerifyEmailUseCase } from './application/use-cases/verify-email.usecase';
 import { ResendVerificationUseCase } from './application/use-cases/resend-verification.usecase';
+import { ResetPasswordUseCase } from './application/use-cases/reset-password.usecase';
 import { SendVerificationEmailUseCase } from './application/use-cases/email-verification.token.usecase';
 import { VERIFY_MAIL_TOKEN } from './constants/verify-mail.tokens';
 import { PostgresEmailVerificationTokenRepository } from './infrastructure/persistence/email-verification.token.repository.postgres';
-import { ConsoleMailService } from './mail/console-mail.service';
+import { PostgresPasswordResetTokenRepository } from './infrastructure/persistence/password-reset.token.repository.postgres';
+import { ResendMailService } from './mail/resend-mail.service';
 
 @Module({
   imports: [
@@ -49,8 +54,12 @@ import { ConsoleMailService } from './mail/console-mail.service';
     SignupEmailUseCase,
     LoginEmailUseCase,
     LoginOAuthUseCase,
+    ListIdentitiesUseCase,
+    LinkOAuthIdentityUseCase,
     LogoutUseCase,
     RefreshSessionUseCase,
+    RequestPasswordResetUseCase,
+    ResetPasswordUseCase,
     VerifyEmailUseCase,
     ResendVerificationUseCase,
     SendVerificationEmailUseCase,
@@ -77,12 +86,16 @@ import { ConsoleMailService } from './mail/console-mail.service';
       useClass: PostgresEmailVerificationTokenRepository,
     },
     {
+      provide: VERIFY_MAIL_TOKEN.PASSWORD_RESET_TOKEN_REPO,
+      useClass: PostgresPasswordResetTokenRepository,
+    },
+    {
       provide: VERIFY_MAIL_TOKEN.USER,
       useClass: PostgresUserRepository,
     },
     {
       provide: VERIFY_MAIL_TOKEN.MAIL_SERVICE,
-      useClass: ConsoleMailService,
+      useClass: ResendMailService,
     }
   ],
   controllers: [AuthController],

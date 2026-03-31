@@ -6,6 +6,7 @@ export type SessionTokens = {
   refreshToken: string;
   expiresAt: Date;
   userId: string;
+  sessionId: string;
   customerId: string | null;
 };
 

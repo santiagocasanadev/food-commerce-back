@@ -5,9 +5,10 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:3000/api/v1
 
 tags:
+  - name: Auth
   - name: Catalog
   - name: Products
   - name: Inventory
@@ -17,6 +18,400 @@ tags:
   - name: Loyalty
 
 paths:
+  /auth/signup/email:
+    post:
+      tags: [Auth]
+      summary: Sign up with email and password
+      operationId: signupEmail
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupEmailRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error or email already registered
+
+  /auth/login/email:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      operationId: loginEmail
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginEmailRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Unified login with email credentials or social provider
+      operationId: loginUnified
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUnifiedRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AuthResponse'
+                  - $ref: '#/components/schemas/AuthResponseWithIdentity'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Invalid credentials
+
+  /auth/login/oauth/google:
+    post:
+      tags: [Auth]
+      summary: Log in or sign up with Google
+      operationId: loginGoogle
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginGoogleRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseWithIdentity'
+
+  /auth/login/oauth/facebook:
+    post:
+      tags: [Auth]
+      summary: Log in or sign up with Facebook
+      operationId: loginFacebook
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginFacebookRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseWithIdentity'
+
+  /auth/login/oauth/apple:
+    post:
+      tags: [Auth]
+      summary: Log in or sign up with Apple
+      operationId: loginApple
+      security: []
+      parameters:
+        - name: x-guest-id
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginAppleRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponseWithIdentity'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token and issue a new session
+      operationId: refreshSession
+      security: []
+      parameters:
+        - name: user-agent
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current refresh token
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List active sessions for the authenticated user
+      operationId: listAuthSessions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthSessionView'
+
+  /auth/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      summary: Revoke one active session by id
+      operationId: revokeAuthSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/identities:
+    get:
+      tags: [Auth]
+      summary: List linked identities for the authenticated user
+      operationId: listLinkedIdentities
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LinkedIdentity'
+
+  /auth/identities/link:
+    post:
+      tags: [Auth]
+      summary: Link a social identity to the authenticated user
+      operationId: linkIdentity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkIdentityRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedIdentity'
+        '409':
+          description: The social account is already linked or the provider is already linked
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify the email address using a verification token
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid token
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend verification email to the authenticated user
+      operationId: resendVerification
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '201':
+          description: Created
+
+  /auth/password/forgot:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/password/reset:
+    post:
+      tags: [Auth]
+      summary: Reset password using a reset token
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid token or unsupported credential type
+
   /catalogs:
     get:
       tags: [Catalog]
@@ -295,6 +690,274 @@ components:
       bearerFormat: JWT
 
   schemas:
+    SignupEmailRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginEmailRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginGoogleRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+
+    LoginFacebookRequest:
+      type: object
+      required: [accessToken]
+      properties:
+        accessToken:
+          type: string
+
+    LoginAppleRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 20
+
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 20
+
+    VerifyEmailRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 20
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+          minLength: 20
+        newPassword:
+          type: string
+          minLength: 8
+
+    LoginUnifiedRequest:
+      oneOf:
+        - type: object
+          required: [type, email, password]
+          properties:
+            type:
+              type: string
+              enum: [email]
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+              minLength: 8
+        - type: object
+          required: [type, provider, token]
+          properties:
+            type:
+              type: string
+              enum: [social]
+            provider:
+              type: string
+              enum: [google, facebook, apple]
+            token:
+              type: string
+
+    LinkIdentityRequest:
+      type: object
+      required: [provider, token]
+      properties:
+        provider:
+          type: string
+          enum: [google, facebook, apple]
+        token:
+          type: string
+
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    AuthIdentity:
+      type: object
+      required: [id, provider]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [email, google, facebook, apple]
+
+    AuthUser:
+      type: object
+      required: [id, email, name, emailVerified, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          nullable: true
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        emailVerified:
+          type: boolean
+        role:
+          type: string
+          enum: [CUSTOMER, ADMIN, OPERATOR]
+
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresAt, userId, sessionId, customerId, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+        user:
+          $ref: '#/components/schemas/AuthUser'
+
+    AuthResponseWithIdentity:
+      allOf:
+        - $ref: '#/components/schemas/AuthResponse'
+        - type: object
+          required: [identity]
+          properties:
+            identity:
+              $ref: '#/components/schemas/AuthIdentity'
+
+    RefreshResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresAt, userId, sessionId, customerId]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+
+    AuthSessionView:
+      type: object
+      required: [id, createdAt, expiresAt, current]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userAgent:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        current:
+          type: boolean
+
+    LinkedIdentity:
+      type: object
+      required: [id, provider, linkedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [email, google, facebook, apple]
+        email:
+          type: string
+          format: email
+          nullable: true
+        linkedAt:
+          type: string
+          format: date-time
+
     Catalog:
       type: object
       required: [id, name, active]

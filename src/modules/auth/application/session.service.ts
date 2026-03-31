@@ -33,7 +33,7 @@ export class SessionService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    await this.sessionRepo.create({
+    const persistedSession = await this.sessionRepo.create({
       id: crypto.randomUUID(),
       userId: params.userId,
       refreshTokenHash,
@@ -44,6 +44,7 @@ export class SessionService {
 
     const accessToken = this.jwtService.sign({
       sub: params.userId,
+      sid: persistedSession.id,
       role: claims.role,
       customerId: claims.customerId,
     });
@@ -53,6 +54,7 @@ export class SessionService {
       refreshToken,
       expiresAt,
       userId: params.userId,
+      sessionId: persistedSession.id,
       customerId: claims.customerId,
     };
   }
@@ -85,6 +87,20 @@ export class SessionService {
 
   async invalidateSession(refreshToken: string): Promise<void> {
     await this.sessionRepo.deleteByRefreshTokenHash(this.hash(refreshToken));
+  }
+
+  async listUserSessions(userId: string): Promise<AuthSession[]> {
+    const sessions = await this.sessionRepo.findByUserId(userId);
+
+    return sessions.filter((session) => !session.isExpired());
+  }
+
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    await this.sessionRepo.deleteByIdAndUserId(sessionId, userId);
+  }
+
+  async revokeAllUserSessions(userId: string): Promise<void> {
+    await this.sessionRepo.deleteByUserId(userId);
   }
 
   async validateSession(sessionId: string): Promise<AuthSession | null> {

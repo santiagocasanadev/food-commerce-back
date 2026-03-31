@@ -1,0 +1,1741 @@
+diff --git a/src/infrastructure/database/migrations/20260330_create_email_verification_tokens.sql b/src/infrastructure/database/migrations/20260330_create_email_verification_tokens.sql
+new file mode 100644
+index 0000000..a9ec08c
+--- /dev/null
++++ b/src/infrastructure/database/migrations/20260330_create_email_verification_tokens.sql
+@@ -0,0 +1,14 @@
++CREATE TABLE IF NOT EXISTS email_verification_tokens (
++  id UUID PRIMARY KEY,
++  user_id UUID NOT NULL,
++  token_hash TEXT NOT NULL UNIQUE,
++  expires_at TIMESTAMP NOT NULL,
++  consumed BOOLEAN NOT NULL DEFAULT FALSE,
++  CONSTRAINT fk_email_verification_tokens_user
++    FOREIGN KEY (user_id)
++    REFERENCES users(id)
++    ON DELETE CASCADE
++);
++
++CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id
++  ON email_verification_tokens(user_id);
+diff --git a/src/infrastructure/database/migrations/20260330_create_password_reset_tokens.sql b/src/infrastructure/database/migrations/20260330_create_password_reset_tokens.sql
+new file mode 100644
+index 0000000..9f5d1a8
+--- /dev/null
++++ b/src/infrastructure/database/migrations/20260330_create_password_reset_tokens.sql
+@@ -0,0 +1,14 @@
++CREATE TABLE IF NOT EXISTS password_reset_tokens (
++  id UUID PRIMARY KEY,
++  user_id UUID NOT NULL,
++  token_hash TEXT NOT NULL UNIQUE,
++  expires_at TIMESTAMP NOT NULL,
++  consumed BOOLEAN NOT NULL DEFAULT FALSE,
++  CONSTRAINT fk_password_reset_tokens_user
++    FOREIGN KEY (user_id)
++    REFERENCES users(id)
++    ON DELETE CASCADE
++);
++
++CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id
++  ON password_reset_tokens(user_id);
+diff --git a/src/infrastructure/database/postgres.connection.ts b/src/infrastructure/database/postgres.connection.ts
+index 2557050..5eb03f8 100644
+--- a/src/infrastructure/database/postgres.connection.ts
++++ b/src/infrastructure/database/postgres.connection.ts
+@@ -1,12 +1,21 @@
+ import { Pool } from 'pg';
++import { getDbCredentials } from './postgres.secrets';
+ 
+ let pool: Pool | null = null;
+ 
+ export async function initPostgres(): Promise<void> {
++  const connectionString = process.env.DATABASE_URL?.trim();
++
++  const connectionConfig = connectionString
++    ? {
++        connectionString,
++      }
++    : await buildConnectionConfigFromSecret();
++
+   pool = new Pool({
+-    connectionString: process.env.DATABASE_URL,
++    ...connectionConfig,
+     ssl: {
+-      rejectUnauthorized: false, // clave para Supabase
++      rejectUnauthorized: false,
+     },
+     max: 10,
+     idleTimeoutMillis: 30000,
+@@ -21,4 +30,22 @@ export function getPgPool(): Pool {
+     throw new Error('Postgres pool not initialized');
+   }
+   return pool;
+-}
+\ No newline at end of file
++}
++
++async function buildConnectionConfigFromSecret() {
++  if (!process.env.DB_SECRET_NAME) {
++    throw new Error(
++      'Postgres config missing. Define DATABASE_URL or DB_SECRET_NAME.',
++    );
++  }
++
++  const creds = await getDbCredentials();
++
++  return {
++    host: creds.host,
++    port: creds.port,
++    user: creds.username,
++    password: creds.password,
++    database: creds.dbname,
++  };
++}
+diff --git a/src/infrastructure/database/schema.sql b/src/infrastructure/database/schema.sql
+index a59bb17..e20c235 100644
+--- a/src/infrastructure/database/schema.sql
++++ b/src/infrastructure/database/schema.sql
+@@ -68,6 +68,21 @@ CREATE TABLE email_verification_tokens (
+ CREATE INDEX idx_email_verification_tokens_user_id
+   ON email_verification_tokens(user_id);
+ 
++CREATE TABLE password_reset_tokens (
++  id UUID PRIMARY KEY,
++  user_id UUID NOT NULL,
++  token_hash TEXT NOT NULL UNIQUE,
++  expires_at TIMESTAMP NOT NULL,
++  consumed BOOLEAN NOT NULL DEFAULT FALSE,
++  CONSTRAINT fk_password_reset_tokens_user
++    FOREIGN KEY (user_id)
++    REFERENCES users(id)
++    ON DELETE CASCADE
++);
++
++CREATE INDEX idx_password_reset_tokens_user_id
++  ON password_reset_tokens(user_id);
++
+ 
+ -- =========================
+ -- Catalogs
+diff --git a/src/modules/auth/api/auth.controller.ts b/src/modules/auth/api/auth.controller.ts
+index 89c99b6..7f32dcb 100644
+--- a/src/modules/auth/api/auth.controller.ts
++++ b/src/modules/auth/api/auth.controller.ts
+@@ -1,15 +1,19 @@
+-import { Body, Controller, Headers, Ip, Post, Req, UseGuards } from '@nestjs/common';
++import { Body, Controller, Delete, Get, Headers, Ip, Param, Post, Req, UseGuards } from '@nestjs/common';
+ import { Throttle } from '@nestjs/throttler';
+ import { Public } from '../../../security/decorators/public.decorator';
+ import { JwtAuthGuard } from '../../../security/guards/jwt-auth.guard';
+ import { AuthOrchestrator } from '../application/auth.orchestrator';
+ import { AuthProvider } from '../domain/authProviders';
++import { ForgotPasswordDto } from '../dto/forgot-password.dto';
++import { LinkIdentityDto } from '../dto/link-identity.dto';
++import { LoginDto, LoginType } from '../dto/login.dto';
+ import { LoginAppleDto } from '../dto/login-apple.dto';
+ import { LoginEmailDto } from '../dto/login-email.dto';
+ import { LoginFacebookDto } from '../dto/login-facebook.dto';
+ import { LoginGoogleDto } from '../dto/login-google.dto';
+ import { LogoutDto } from '../dto/logout.dto';
+ import { RefreshDto } from '../dto/refresh.dto';
++import { ResetPasswordDto } from '../dto/reset-password.dto';
+ import { SignupEmailDto } from '../dto/signup-email.dto';
+ import { ResendVerificationUseCase } from '../application/use-cases/resend-verification.usecase';
+ import { VerifyEmailUseCase } from '../application/use-cases/verify-email.usecase';
+@@ -39,6 +43,36 @@ export class AuthController {
+     });
+   }
+ 
++  @Public()
++  @Throttle({ default: { limit: 10, ttl: 60000 } })
++  @Post('login')
++  login(
++    @Body() dto: LoginDto,
++    @Headers('x-guest-id') guestId: string | undefined,
++    @Headers('user-agent') userAgent: string | undefined,
++    @Ip() ipAddress: string,
++  ) {
++    if (dto.type === LoginType.EMAIL) {
++      return this.authOrchestrator.login({
++        type: 'email',
++        email: dto.email!,
++        password: dto.password!,
++        guestId,
++        userAgent,
++        ipAddress,
++      });
++    }
++
++    return this.authOrchestrator.login({
++      type: 'social',
++      provider: dto.provider!,
++      token: dto.token!,
++      guestId,
++      userAgent,
++      ipAddress,
++    });
++  }
++
+   @Public()
+   @Throttle({ default: { limit: 10, ttl: 60000 } })
+   @Post('login/email')
+@@ -131,6 +165,40 @@ export class AuthController {
+     return this.authOrchestrator.logout(dto);
+   }
+ 
++  @UseGuards(JwtAuthGuard)
++  @Get('sessions')
++  sessions(@Req() req) {
++    return this.authOrchestrator.listSessions({
++      userId: req.user.userId,
++      currentSessionId: req.user.sessionId ?? null,
++    });
++  }
++
++  @UseGuards(JwtAuthGuard)
++  @Delete('sessions/:sessionId')
++  revokeSession(@Req() req, @Param('sessionId') sessionId: string) {
++    return this.authOrchestrator.revokeSession({
++      userId: req.user.userId,
++      sessionId,
++    });
++  }
++
++  @UseGuards(JwtAuthGuard)
++  @Get('identities')
++  identities(@Req() req) {
++    return this.authOrchestrator.listIdentities(req.user.userId);
++  }
++
++  @UseGuards(JwtAuthGuard)
++  @Post('identities/link')
++  linkIdentity(@Req() req, @Body() dto: LinkIdentityDto) {
++    return this.authOrchestrator.linkIdentity({
++      userId: req.user.userId,
++      provider: dto.provider,
++      token: dto.token,
++    });
++  }
++
+   @Post('verify-email')
+   @Public()
+   verifyEmail(@Body() dto: { token: string }) {
+@@ -142,4 +210,16 @@ export class AuthController {
+   resend(@Req() req) {
+     return this.resendVerificationUseCase.execute(req.user.userId);
+   }
++
++  @Public()
++  @Post('password/forgot')
++  forgotPassword(@Body() dto: ForgotPasswordDto) {
++    return this.authOrchestrator.requestPasswordReset(dto);
++  }
++
++  @Public()
++  @Post('password/reset')
++  resetPassword(@Body() dto: ResetPasswordDto) {
++    return this.authOrchestrator.resetPassword(dto);
++  }
+ }
+diff --git a/src/modules/auth/application/auth.orchestrator.ts b/src/modules/auth/application/auth.orchestrator.ts
+index f3be9f0..f59f72c 100644
+--- a/src/modules/auth/application/auth.orchestrator.ts
++++ b/src/modules/auth/application/auth.orchestrator.ts
+@@ -45,6 +45,28 @@ export class AuthOrchestrator {
+     return this.attachCustomerContext(authResult, payload.guestId);
+   }
+ 
++  async login(payload:
++    | {
++        type: 'email';
++        email: string;
++        password: string;
++        userAgent?: string | null;
++        ipAddress?: string | null;
++        guestId?: string | null;
++      }
++    | {
++        type: 'social';
++        provider: AuthProvider;
++        token: string;
++        userAgent?: string | null;
++        ipAddress?: string | null;
++        guestId?: string | null;
++      }) {
++    const authResult = await this.authService.login(payload);
++
++    return this.attachCustomerContext(authResult, payload.guestId);
++  }
++
+   async loginWithOAuth(payload: {
+     provider: AuthProvider;
+     token: string;
+@@ -74,6 +96,57 @@ export class AuthOrchestrator {
+     return this.authService.logout(payload);
+   }
+ 
++  async listSessions(payload: { userId: string; currentSessionId?: string | null }) {
++    const sessions = await this.authService.listSessions(payload.userId);
++
++    return sessions.map((session) => ({
++      id: session.id,
++      userAgent: session.userAgent,
++      ipAddress: session.ipAddress,
++      createdAt: session.createdAt,
++      expiresAt: session.getExpiresAt(),
++      current: payload.currentSessionId === session.id,
++    }));
++  }
++
++  async revokeSession(payload: { userId: string; sessionId: string }) {
++    return this.authService.revokeSession(payload.userId, payload.sessionId);
++  }
++
++  async requestPasswordReset(payload: { email: string }) {
++    return this.authService.requestPasswordReset(payload.email);
++  }
++
++  async resetPassword(payload: { token: string; newPassword: string }) {
++    return this.authService.resetPassword(payload);
++  }
++
++  async listIdentities(userId: string) {
++    const identities = await this.authService.listIdentities(userId);
++
++    return identities.map((identity) => ({
++      id: identity.id,
++      provider: identity.provider,
++      email: identity.email,
++      linkedAt: identity.createdAt,
++    }));
++  }
++
++  async linkIdentity(payload: {
++    userId: string;
++    provider: AuthProvider;
++    token: string;
++  }) {
++    const identity = await this.authService.linkIdentity(payload);
++
++    return {
++      id: identity.id,
++      provider: identity.provider,
++      email: identity.email,
++      linkedAt: identity.createdAt,
++    };
++  }
++
+   private async attachCustomerContext(
+     authResult: { userId: string; customerId: string | null; user?: { id: string } },
+     guestId?: string | null,
+diff --git a/src/modules/auth/application/auth.service.ts b/src/modules/auth/application/auth.service.ts
+index f9f9939..e8c2db0 100644
+--- a/src/modules/auth/application/auth.service.ts
++++ b/src/modules/auth/application/auth.service.ts
+@@ -1,10 +1,15 @@
+ import { Injectable } from '@nestjs/common';
+ import { AuthProvider } from '../domain/authProviders';
++import { LinkOAuthIdentityUseCase } from './use-cases/link-oauth-identity.usecase';
+ import { LoginEmailUseCase } from './use-cases/login-email.usecase';
+ import { LoginOAuthUseCase } from './use-cases/login-oauth.usecase';
++import { ListIdentitiesUseCase } from './use-cases/list-identities.usecase';
+ import { LogoutUseCase } from './use-cases/logout.usecase';
++import { RequestPasswordResetUseCase } from './use-cases/request-password-reset.usecase';
+ import { RefreshSessionUseCase } from './use-cases/refresh-session.usecase';
++import { ResetPasswordUseCase } from './use-cases/reset-password.usecase';
+ import { SignupEmailUseCase } from './use-cases/signup-email.usecase';
++import { SessionService } from './session.service';
+ 
+ @Injectable()
+ export class AuthService {
+@@ -12,8 +17,13 @@ export class AuthService {
+     private readonly signupEmailUseCase: SignupEmailUseCase,
+     private readonly loginEmailUseCase: LoginEmailUseCase,
+     private readonly loginOAuthUseCase: LoginOAuthUseCase,
++    private readonly listIdentitiesUseCase: ListIdentitiesUseCase,
++    private readonly linkOAuthIdentityUseCase: LinkOAuthIdentityUseCase,
+     private readonly refreshSessionUseCase: RefreshSessionUseCase,
+     private readonly logoutUseCase: LogoutUseCase,
++    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
++    private readonly resetPasswordUseCase: ResetPasswordUseCase,
++    private readonly sessionService: SessionService,
+   ) {}
+ 
+   async signupWithEmail(payload: {
+@@ -43,6 +53,28 @@ export class AuthService {
+     return this.loginOAuthUseCase.execute(payload);
+   }
+ 
++  async login(payload:
++    | {
++        type: 'email';
++        email: string;
++        password: string;
++        userAgent?: string | null;
++        ipAddress?: string | null;
++      }
++    | {
++        type: 'social';
++        provider: AuthProvider;
++        token: string;
++        userAgent?: string | null;
++        ipAddress?: string | null;
++      }) {
++    if (payload.type === 'email') {
++      return this.loginEmailUseCase.execute(payload);
++    }
++
++    return this.loginOAuthUseCase.execute(payload);
++  }
++
+   async refresh(payload: {
+     refreshToken: string;
+     userAgent?: string | null;
+@@ -54,4 +86,33 @@ export class AuthService {
+   async logout(payload: { refreshToken: string }) {
+     return this.logoutUseCase.execute(payload);
+   }
++
++  async listSessions(userId: string) {
++    return this.sessionService.listUserSessions(userId);
++  }
++
++  async revokeSession(userId: string, sessionId: string) {
++    await this.sessionService.revokeSession(userId, sessionId);
++    return { success: true };
++  }
++
++  async requestPasswordReset(email: string) {
++    return this.requestPasswordResetUseCase.execute(email);
++  }
++
++  async resetPassword(payload: { token: string; newPassword: string }) {
++    return this.resetPasswordUseCase.execute(payload);
++  }
++
++  async listIdentities(userId: string) {
++    return this.listIdentitiesUseCase.execute(userId);
++  }
++
++  async linkIdentity(payload: {
++    userId: string;
++    provider: AuthProvider;
++    token: string;
++  }) {
++    return this.linkOAuthIdentityUseCase.execute(payload);
++  }
+ }
+diff --git a/src/modules/auth/application/presenters/auth-response.presenter.ts b/src/modules/auth/application/presenters/auth-response.presenter.ts
+index eace28f..161367b 100644
+--- a/src/modules/auth/application/presenters/auth-response.presenter.ts
++++ b/src/modules/auth/application/presenters/auth-response.presenter.ts
+@@ -6,6 +6,7 @@ export type SessionTokens = {
+   refreshToken: string;
+   expiresAt: Date;
+   userId: string;
++  sessionId: string;
+   customerId: string | null;
+ };
+ 
+diff --git a/src/modules/auth/application/session.service.ts b/src/modules/auth/application/session.service.ts
+index 50c46ed..d12bace 100644
+--- a/src/modules/auth/application/session.service.ts
++++ b/src/modules/auth/application/session.service.ts
+@@ -33,7 +33,7 @@ export class SessionService {
+     const expiresAt = new Date();
+     expiresAt.setDate(expiresAt.getDate() + 30);
+ 
+-    await this.sessionRepo.create({
++    const persistedSession = await this.sessionRepo.create({
+       id: crypto.randomUUID(),
+       userId: params.userId,
+       refreshTokenHash,
+@@ -44,6 +44,7 @@ export class SessionService {
+ 
+     const accessToken = this.jwtService.sign({
+       sub: params.userId,
++      sid: persistedSession.id,
+       role: claims.role,
+       customerId: claims.customerId,
+     });
+@@ -53,6 +54,7 @@ export class SessionService {
+       refreshToken,
+       expiresAt,
+       userId: params.userId,
++      sessionId: persistedSession.id,
+       customerId: claims.customerId,
+     };
+   }
+@@ -87,6 +89,20 @@ export class SessionService {
+     await this.sessionRepo.deleteByRefreshTokenHash(this.hash(refreshToken));
+   }
+ 
++  async listUserSessions(userId: string): Promise<AuthSession[]> {
++    const sessions = await this.sessionRepo.findByUserId(userId);
++
++    return sessions.filter((session) => !session.isExpired());
++  }
++
++  async revokeSession(userId: string, sessionId: string): Promise<void> {
++    await this.sessionRepo.deleteByIdAndUserId(sessionId, userId);
++  }
++
++  async revokeAllUserSessions(userId: string): Promise<void> {
++    await this.sessionRepo.deleteByUserId(userId);
++  }
++
+   async validateSession(sessionId: string): Promise<AuthSession | null> {
+     const session = await this.sessionRepo.findById(sessionId);
+ 
+diff --git a/src/modules/auth/application/use-cases/request-password-reset.usecase.ts b/src/modules/auth/application/use-cases/request-password-reset.usecase.ts
+new file mode 100644
+index 0000000..caf8e19
+--- /dev/null
++++ b/src/modules/auth/application/use-cases/request-password-reset.usecase.ts
+@@ -0,0 +1,58 @@
++import { Inject, Injectable } from '@nestjs/common';
++import * as crypto from 'crypto';
++import { VERIFY_MAIL_TOKEN } from '../../constants/verify-mail.tokens';
++import { PasswordResetToken } from '../../domain/entities/password-reset.token.entity';
++import type { PasswordResetTokenRepository } from '../../domain/repositories/password-reset.token.repository';
++import type { UserRepository } from '../../domain/repositories/user.repository';
++import type { MailService } from '../../mail/mail.service';
++
++@Injectable()
++export class RequestPasswordResetUseCase {
++  constructor(
++    @Inject(VERIFY_MAIL_TOKEN.PASSWORD_RESET_TOKEN_REPO)
++    private readonly tokenRepo: PasswordResetTokenRepository,
++    @Inject(VERIFY_MAIL_TOKEN.USER)
++    private readonly userRepo: UserRepository,
++    @Inject(VERIFY_MAIL_TOKEN.MAIL_SERVICE)
++    private readonly mailService: MailService,
++  ) {}
++
++  async execute(rawEmail: string) {
++    const normalizedEmail = rawEmail.trim().toLowerCase();
++    const user = await this.userRepo.findByEmail(normalizedEmail);
++    const email = user?.getEmail() ?? null;
++
++    if (!user || !email) {
++      return { success: true };
++    }
++
++    const rawToken = crypto.randomBytes(32).toString('hex');
++    const tokenHash = this.hash(rawToken);
++    const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
++
++    await this.tokenRepo.deleteByUser(user.id);
++    await this.tokenRepo.create(
++      new PasswordResetToken(
++        crypto.randomUUID(),
++        user.id,
++        tokenHash,
++        expiresAt,
++        false,
++      ),
++    );
++
++    const resetLink = `${process.env.FRONT_URL}/reset-password?token=${rawToken}`;
++
++    await this.mailService.send({
++      to: email,
++      subject: 'Reset your password',
++      html: `<a href="${resetLink}">Reset password</a>`,
++    });
++
++    return { success: true };
++  }
++
++  private hash(token: string) {
++    return crypto.createHash('sha256').update(token).digest('hex');
++  }
++}
+diff --git a/src/modules/auth/application/use-cases/reset-password.usecase.ts b/src/modules/auth/application/use-cases/reset-password.usecase.ts
+new file mode 100644
+index 0000000..9926c5d
+--- /dev/null
++++ b/src/modules/auth/application/use-cases/reset-password.usecase.ts
+@@ -0,0 +1,65 @@
++import * as crypto from 'crypto';
++import { BadRequestException, Inject, Injectable } from '@nestjs/common';
++import { AuthProvider } from '../../domain/authProviders';
++import { AUTH_INJECTION_TOKENS } from '../../constants/injection-tokens';
++import { VERIFY_MAIL_TOKEN } from '../../constants/verify-mail.tokens';
++import type { AuthIdentityRepository } from '../../domain/repositories/auth-identity.repository';
++import type { PasswordResetTokenRepository } from '../../domain/repositories/password-reset.token.repository';
++import type { UserRepository } from '../../domain/repositories/user.repository';
++import type { PasswordHasher } from '../ports/password-hasher';
++import { SessionService } from '../session.service';
++
++@Injectable()
++export class ResetPasswordUseCase {
++  constructor(
++    @Inject(VERIFY_MAIL_TOKEN.PASSWORD_RESET_TOKEN_REPO)
++    private readonly tokenRepo: PasswordResetTokenRepository,
++    @Inject(VERIFY_MAIL_TOKEN.USER)
++    private readonly userRepo: UserRepository,
++    @Inject(AUTH_INJECTION_TOKENS.AUTH_IDENTITY_REPOSITORY)
++    private readonly authIdentityRepository: AuthIdentityRepository,
++    @Inject(AUTH_INJECTION_TOKENS.PASSWORD_HASHER)
++    private readonly passwordHasher: PasswordHasher,
++    private readonly sessionService: SessionService,
++  ) {}
++
++  async execute(input: { token: string; newPassword: string }) {
++    const tokenHash = this.hash(input.token);
++    const resetToken = await this.tokenRepo.findByHash(tokenHash);
++
++    if (!resetToken || resetToken.isExpired() || resetToken.isConsumed()) {
++      throw new BadRequestException('Invalid token');
++    }
++
++    const user = await this.userRepo.findById(resetToken.userId);
++    const email = user?.getEmail() ?? null;
++
++    if (!user || !email) {
++      throw new BadRequestException('Invalid token');
++    }
++
++    const identity = await this.authIdentityRepository.findEmailIdentityByEmail(
++      email,
++    );
++
++    if (!identity || identity.provider !== AuthProvider.EMAIL) {
++      throw new BadRequestException('User has no email/password credentials');
++    }
++
++    identity.setPasswordHash(
++      await this.passwordHasher.hash(input.newPassword),
++    );
++    await this.authIdentityRepository.save(identity);
++
++    resetToken.consume();
++    await this.tokenRepo.consume(resetToken);
++    await this.tokenRepo.deleteByUser(user.id);
++    await this.sessionService.revokeAllUserSessions(user.id);
++
++    return { success: true };
++  }
++
++  private hash(token: string) {
++    return crypto.createHash('sha256').update(token).digest('hex');
++  }
++}
+diff --git a/src/modules/auth/auth.integration.spec.ts b/src/modules/auth/auth.integration.spec.ts
+new file mode 100644
+index 0000000..223152f
+--- /dev/null
++++ b/src/modules/auth/auth.integration.spec.ts
+@@ -0,0 +1,703 @@
++import { INestApplication, ValidationPipe } from '@nestjs/common';
++import { Test, TestingModule } from '@nestjs/testing';
++import request from 'supertest';
++import * as crypto from 'crypto';
++
++process.env.JWT_SECRET = 'test-secret';
++process.env.JWT_EXPIRES_IN = '3600';
++process.env.FRONT_URL = 'http://localhost:3001';
++
++import { AuthModule } from './auth.module';
++import { AUTH_INJECTION_TOKENS } from './constants/injection-tokens';
++import { VERIFY_MAIL_TOKEN } from './constants/verify-mail.tokens';
++import { User } from './domain/entities/user.entity';
++import { Role } from 'src/security/roles.enum';
++import { AuthIdentity } from './domain/entities/auth-identity.entity';
++import { AuthProvider } from './domain/authProviders';
++import { AuthSession } from './domain/entities/auth-session.identity';
++import { EmailVerificationToken } from './domain/entities/email-verification.token.entity';
++import { PasswordResetToken } from './domain/entities/password-reset.token.entity';
++import { CustomerContextService } from '../customers/application/customer-context.service';
++import { CartService } from '../cart/application/cart.service';
++import { Customer } from '../customers/domain/customers.entity';
++import { OAuthProviderFactory } from './infrastructure/oauth-provider.factory';
++
++class InMemoryUserRepository {
++  users = new Map<string, User>();
++
++  async findById(id: string) {
++    return this.users.get(id) ?? null;
++  }
++
++  async findByEmail(email: string) {
++    const normalized = email.toLowerCase();
++    for (const user of this.users.values()) {
++      if (user.getEmail()?.toLowerCase() === normalized) {
++        return user;
++      }
++    }
++    return null;
++  }
++
++  async create(data: {
++    email?: string | null;
++    name: string;
++    imageUrl?: string | null;
++    address?: string | null;
++    birthDate?: Date | null;
++    gender?: string | null;
++    role?: Role;
++    emailVerified?: boolean;
++  }) {
++    const now = new Date();
++    const user = new User(
++      crypto.randomUUID(),
++      data.email ?? null,
++      data.name,
++      data.imageUrl ?? null,
++      data.address ?? null,
++      data.birthDate ?? null,
++      data.gender ?? null,
++      data.emailVerified ?? false,
++      now,
++      now,
++      data.role ?? Role.CUSTOMER,
++    );
++    this.users.set(user.id, user);
++    return user;
++  }
++
++  async save(user: User) {
++    this.users.set(user.id, user);
++  }
++}
++
++class InMemoryAuthIdentityRepository {
++  identities = new Map<string, AuthIdentity>();
++
++  async findByUserId(userId: string) {
++    return [...this.identities.values()].filter((identity) => identity.userId === userId);
++  }
++
++  async findByUserIdAndProvider(userId: string, provider: AuthProvider) {
++    return (
++      [...this.identities.values()].find(
++        (identity) => identity.userId === userId && identity.provider === provider,
++      ) ?? null
++    );
++  }
++
++  async findByProviderUserId(provider: AuthProvider, providerUserId: string) {
++    for (const identity of this.identities.values()) {
++      if (
++        identity.provider === provider &&
++        identity.providerUserId === providerUserId
++      ) {
++        return identity;
++      }
++    }
++    return null;
++  }
++
++  async findEmailIdentityByEmail(email: string) {
++    const normalized = email.toLowerCase();
++    for (const identity of this.identities.values()) {
++      if (
++        identity.provider === AuthProvider.EMAIL &&
++        identity.email?.toLowerCase() === normalized
++      ) {
++        return identity;
++      }
++    }
++    return null;
++  }
++
++  async create(data: {
++    userId: string;
++    provider: AuthProvider;
++    providerUserId?: string | null;
++    email?: string | null;
++    passwordHash?: string | null;
++  }) {
++    const now = new Date();
++    const identity = new AuthIdentity(
++      crypto.randomUUID(),
++      data.userId,
++      data.provider,
++      data.providerUserId ?? null,
++      data.email ?? null,
++      data.passwordHash ?? null,
++      now,
++      now,
++    );
++    this.identities.set(identity.id, identity);
++    return identity;
++  }
++
++  async save(identity: AuthIdentity) {
++    this.identities.set(identity.id, identity);
++  }
++}
++
++class InMemorySessionRepository {
++  sessions = new Map<string, AuthSession>();
++
++  async create(data: {
++    id: string;
++    userId: string;
++    refreshTokenHash: string;
++    userAgent?: string | null;
++    ipAddress?: string | null;
++    expiresAt: Date;
++  }) {
++    const session = new AuthSession(
++      data.id,
++      data.userId,
++      data.refreshTokenHash,
++      data.userAgent ?? null,
++      data.ipAddress ?? null,
++      data.expiresAt,
++      new Date(),
++    );
++    this.sessions.set(session.id, session);
++    return session;
++  }
++
++  async findById(id: string) {
++    return this.sessions.get(id) ?? null;
++  }
++
++  async findByRefreshTokenHash(refreshTokenHash: string) {
++    for (const session of this.sessions.values()) {
++      if (session.getRefreshTokenHash() === refreshTokenHash) {
++        return session;
++      }
++    }
++    return null;
++  }
++
++  async findByUserId(userId: string) {
++    return [...this.sessions.values()].filter((session) => session.userId === userId);
++  }
++
++  async delete(id: string) {
++    this.sessions.delete(id);
++  }
++
++  async deleteByIdAndUserId(id: string, userId: string) {
++    const session = this.sessions.get(id);
++    if (session?.userId === userId) {
++      this.sessions.delete(id);
++    }
++  }
++
++  async deleteByUserId(userId: string) {
++    for (const [id, session] of this.sessions.entries()) {
++      if (session.userId === userId) {
++        this.sessions.delete(id);
++      }
++    }
++  }
++
++  async deleteByRefreshTokenHash(refreshTokenHash: string) {
++    for (const [id, session] of this.sessions.entries()) {
++      if (session.getRefreshTokenHash() === refreshTokenHash) {
++        this.sessions.delete(id);
++      }
++    }
++  }
++}
++
++class InMemoryEmailVerificationTokenRepository {
++  tokens = new Map<string, EmailVerificationToken>();
++
++  async create(token: EmailVerificationToken) {
++    this.tokens.set(token.tokenHash, token);
++  }
++
++  async findByHash(hash: string) {
++    return this.tokens.get(hash) ?? null;
++  }
++
++  async consume(token: EmailVerificationToken) {
++    token.consume();
++    this.tokens.set(token.tokenHash, token);
++  }
++
++  async deleteByUser(userId: string) {
++    for (const [hash, token] of this.tokens.entries()) {
++      if (token.userId === userId) {
++        this.tokens.delete(hash);
++      }
++    }
++  }
++}
++
++class InMemoryPasswordResetTokenRepository {
++  tokens = new Map<string, PasswordResetToken>();
++
++  async create(token: PasswordResetToken) {
++    this.tokens.set(token.tokenHash, token);
++  }
++
++  async findByHash(hash: string) {
++    return this.tokens.get(hash) ?? null;
++  }
++
++  async consume(token: PasswordResetToken) {
++    token.consume();
++    this.tokens.set(token.tokenHash, token);
++  }
++
++  async deleteByUser(userId: string) {
++    for (const [hash, token] of this.tokens.entries()) {
++      if (token.userId === userId) {
++        this.tokens.delete(hash);
++      }
++    }
++  }
++}
++
++class FakePasswordHasher {
++  async hash(value: string) {
++    return `hashed:${value}`;
++  }
++
++  async compare(value: string, hashedValue: string) {
++    return hashedValue === `hashed:${value}`;
++  }
++}
++
++class FakeMailService {
++  sent: Array<{ to: string; subject: string; html: string }> = [];
++
++  async send(input: { to: string; subject: string; html: string }) {
++    this.sent.push(input);
++  }
++}
++
++class FakeCustomerContextService {
++  customers = new Map<string, Customer>();
++
++  async ensureCustomerByUserId(userId: string) {
++    const existing = this.customers.get(userId);
++    if (existing) {
++      return existing;
++    }
++
++    const customer = new Customer(crypto.randomUUID(), userId, Role.CUSTOMER);
++    this.customers.set(userId, customer);
++    return customer;
++  }
++
++  async getCustomerByUserId(userId: string) {
++    const customer = this.customers.get(userId);
++    if (!customer) {
++      throw new Error('Customer not found');
++    }
++    return customer;
++  }
++}
++
++class FakeCartService {
++  async mergeCart() {
++    return;
++  }
++}
++
++class FakeOAuthProviderFactory {
++  get(provider: AuthProvider) {
++    return {
++      provider,
++      async validateToken(token: string) {
++        const profiles: Record<string, any> = {
++          'google-login-token': {
++            provider,
++            providerUserId: 'google-login-user',
++            email: 'social@example.com',
++            name: 'Social User',
++            avatarUrl: 'https://cdn.example.com/social-user.png',
++            emailVerified: true,
++          },
++          'google-link-token': {
++            provider,
++            providerUserId: 'google-link-user',
++            email: 'linked@example.com',
++            name: 'Linked User',
++            avatarUrl: 'https://cdn.example.com/linked-user.png',
++            emailVerified: true,
++          },
++          'google-conflict-token': {
++            provider,
++            providerUserId: 'google-conflict-user',
++            email: 'conflict@example.com',
++            name: 'Conflict User',
++            avatarUrl: null,
++            emailVerified: true,
++          },
++        };
++
++        const profile = profiles[token];
++
++        if (!profile) {
++          throw new Error(`Unknown OAuth token: ${token}`);
++        }
++
++        return profile;
++      },
++    };
++  }
++}
++
++describe('Auth integration', () => {
++  let app: INestApplication;
++  let mailService: FakeMailService;
++  let userRepository: InMemoryUserRepository;
++  let identityRepository: InMemoryAuthIdentityRepository;
++  let sessionRepository: InMemorySessionRepository;
++  let emailVerificationRepository: InMemoryEmailVerificationTokenRepository;
++  let passwordResetRepository: InMemoryPasswordResetTokenRepository;
++  let customerContextService: FakeCustomerContextService;
++
++  beforeAll(async () => {
++    mailService = new FakeMailService();
++    userRepository = new InMemoryUserRepository();
++    identityRepository = new InMemoryAuthIdentityRepository();
++    sessionRepository = new InMemorySessionRepository();
++    emailVerificationRepository = new InMemoryEmailVerificationTokenRepository();
++    passwordResetRepository = new InMemoryPasswordResetTokenRepository();
++    customerContextService = new FakeCustomerContextService();
++
++    const moduleRef: TestingModule = await Test.createTestingModule({
++      imports: [AuthModule],
++    })
++      .overrideProvider(AUTH_INJECTION_TOKENS.USER_REPOSITORY)
++      .useValue(userRepository)
++      .overrideProvider(VERIFY_MAIL_TOKEN.USER)
++      .useValue(userRepository)
++      .overrideProvider(AUTH_INJECTION_TOKENS.AUTH_IDENTITY_REPOSITORY)
++      .useValue(identityRepository)
++      .overrideProvider(AUTH_INJECTION_TOKENS.SESSION_REPOSITORY)
++      .useValue(sessionRepository)
++      .overrideProvider(AUTH_INJECTION_TOKENS.PASSWORD_HASHER)
++      .useValue(new FakePasswordHasher())
++      .overrideProvider(VERIFY_MAIL_TOKEN.EMAIL_VERIFICATION_TOKEN_REPO)
++      .useValue(emailVerificationRepository)
++      .overrideProvider(VERIFY_MAIL_TOKEN.PASSWORD_RESET_TOKEN_REPO)
++      .useValue(passwordResetRepository)
++      .overrideProvider(VERIFY_MAIL_TOKEN.MAIL_SERVICE)
++      .useValue(mailService)
++      .overrideProvider(CustomerContextService)
++      .useValue(customerContextService)
++      .overrideProvider(CartService)
++      .useValue(new FakeCartService())
++      .overrideProvider(OAuthProviderFactory)
++      .useValue(new FakeOAuthProviderFactory())
++      .compile();
++
++    app = moduleRef.createNestApplication();
++    app.useGlobalPipes(
++      new ValidationPipe({
++        whitelist: true,
++        forbidNonWhitelisted: true,
++        transform: true,
++      }),
++    );
++    await app.init();
++  });
++
++  afterEach(() => {
++    mailService.sent.length = 0;
++    userRepository.users.clear();
++    identityRepository.identities.clear();
++    sessionRepository.sessions.clear();
++    emailVerificationRepository.tokens.clear();
++    passwordResetRepository.tokens.clear();
++    customerContextService.customers.clear();
++  });
++
++  afterAll(async () => {
++    if (app) {
++      await app.close();
++    }
++  });
++
++  it('signup returns auth payload and sends verification email automatically', async () => {
++    const response = await request(app.getHttpServer())
++      .post('/auth/signup/email')
++      .send({
++        email: 'ana@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    expect(response.body.user.email).toBe('ana@example.com');
++    expect(response.body.user.role).toBe('CUSTOMER');
++    expect(response.body.sessionId).toBeTruthy();
++    expect(response.body.customerId).toBeTruthy();
++    expect(mailService.sent).toHaveLength(1);
++    expect(mailService.sent[0].subject).toContain('Verify');
++  });
++
++  it('supports login, refresh and logout', async () => {
++    await signup(app, 'login@example.com');
++
++    const login = await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .send({
++        email: 'login@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    const refresh = await request(app.getHttpServer())
++      .post('/auth/refresh')
++      .send({ refreshToken: login.body.refreshToken })
++      .expect(201);
++
++    expect(refresh.body.sessionId).toBeTruthy();
++    expect(refresh.body.sessionId).not.toBe(login.body.sessionId);
++
++    await request(app.getHttpServer())
++      .post('/auth/logout')
++      .set('Authorization', `Bearer ${refresh.body.accessToken}`)
++      .send({ refreshToken: refresh.body.refreshToken })
++      .expect(201);
++
++    await request(app.getHttpServer())
++      .post('/auth/refresh')
++      .send({ refreshToken: refresh.body.refreshToken })
++      .expect(401);
++  });
++
++  it('supports unified login with email credentials', async () => {
++    await signup(app, 'unified-email@example.com');
++
++    const response = await request(app.getHttpServer())
++      .post('/auth/login')
++      .send({
++        type: 'email',
++        email: 'unified-email@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    expect(response.body.user.email).toBe('unified-email@example.com');
++    expect(response.body.sessionId).toBeTruthy();
++  });
++
++  it('supports unified social login', async () => {
++    const response = await request(app.getHttpServer())
++      .post('/auth/login')
++      .send({
++        type: 'social',
++        provider: 'google',
++        token: 'google-login-token',
++      })
++      .expect(201);
++
++    expect(response.body.identity.provider).toBe('google');
++    expect(response.body.user.email).toBe('social@example.com');
++    expect(response.body.user.emailVerified).toBe(true);
++  });
++
++  it('supports resend-verification and verify-email', async () => {
++    const signupResponse = await signup(app, 'verify@example.com');
++
++    await request(app.getHttpServer())
++      .post('/auth/resend-verification')
++      .set('Authorization', `Bearer ${signupResponse.accessToken}`)
++      .send({})
++      .expect(201);
++
++    const verificationMail = findLatestMailBySubject(mailService.sent, 'Verify');
++    const token = extractTokenFromHtml(verificationMail.html);
++
++    await request(app.getHttpServer())
++      .post('/auth/verify-email')
++      .send({ token })
++      .expect(201);
++
++    const login = await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .send({
++        email: 'verify@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    expect(login.body.user.emailVerified).toBe(true);
++  });
++
++  it('lists and revokes individual sessions by device', async () => {
++    const signupResponse = await signup(app, 'devices@example.com');
++
++    await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .set('user-agent', 'device-1')
++      .send({
++        email: 'devices@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    const latestLogin = await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .set('user-agent', 'device-2')
++      .send({
++        email: 'devices@example.com',
++        password: 'Password123',
++      })
++      .expect(201);
++
++    const sessions = await request(app.getHttpServer())
++      .get('/auth/sessions')
++      .set('Authorization', `Bearer ${latestLogin.body.accessToken}`)
++      .expect(200);
++
++    expect(sessions.body).toHaveLength(3);
++    expect(sessions.body.some((session) => session.current === true)).toBe(true);
++
++    const targetSession = sessions.body.find(
++      (session) => session.id === signupResponse.sessionId,
++    );
++
++    await request(app.getHttpServer())
++      .delete(`/auth/sessions/${targetSession.id}`)
++      .set('Authorization', `Bearer ${latestLogin.body.accessToken}`)
++      .expect(200);
++
++    const sessionsAfterRevocation = await request(app.getHttpServer())
++      .get('/auth/sessions')
++      .set('Authorization', `Bearer ${latestLogin.body.accessToken}`)
++      .expect(200);
++
++    expect(sessionsAfterRevocation.body).toHaveLength(2);
++    expect(
++      sessionsAfterRevocation.body.find((session) => session.id === targetSession.id),
++    ).toBeUndefined();
++  });
++
++  it('links a social identity from the authenticated profile and lists identities', async () => {
++    const signupResponse = await signup(app, 'linked@example.com');
++
++    const linkedIdentity = await request(app.getHttpServer())
++      .post('/auth/identities/link')
++      .set('Authorization', `Bearer ${signupResponse.accessToken}`)
++      .send({
++        provider: 'google',
++        token: 'google-link-token',
++      })
++      .expect(201);
++
++    expect(linkedIdentity.body.provider).toBe('google');
++
++    const identities = await request(app.getHttpServer())
++      .get('/auth/identities')
++      .set('Authorization', `Bearer ${signupResponse.accessToken}`)
++      .expect(200);
++
++    expect(identities.body).toHaveLength(2);
++    expect(identities.body.some((identity) => identity.provider === 'email')).toBe(true);
++    expect(identities.body.some((identity) => identity.provider === 'google')).toBe(true);
++  });
++
++  it('rejects linking a social account already linked to another user', async () => {
++    const firstUser = await signup(app, 'conflict1@example.com');
++    const secondUser = await signup(app, 'conflict2@example.com');
++
++    await request(app.getHttpServer())
++      .post('/auth/identities/link')
++      .set('Authorization', `Bearer ${firstUser.accessToken}`)
++      .send({
++        provider: 'google',
++        token: 'google-conflict-token',
++      })
++      .expect(201);
++
++    await request(app.getHttpServer())
++      .post('/auth/identities/link')
++      .set('Authorization', `Bearer ${secondUser.accessToken}`)
++      .send({
++        provider: 'google',
++        token: 'google-conflict-token',
++      })
++      .expect(409);
++  });
++
++  it('resets password and revokes previous sessions', async () => {
++    const signupResponse = await signup(app, 'reset@example.com');
++
++    await request(app.getHttpServer())
++      .post('/auth/password/forgot')
++      .send({ email: 'reset@example.com' })
++      .expect(201);
++
++    const resetMail = findLatestMailBySubject(mailService.sent, 'Reset');
++    const token = extractTokenFromHtml(resetMail.html);
++
++    await request(app.getHttpServer())
++      .post('/auth/password/reset')
++      .send({
++        token,
++        newPassword: 'NewPassword123',
++      })
++      .expect(201);
++
++    await request(app.getHttpServer())
++      .post('/auth/refresh')
++      .send({ refreshToken: signupResponse.refreshToken })
++      .expect(401);
++
++    await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .send({
++        email: 'reset@example.com',
++        password: 'Password123',
++      })
++      .expect(401);
++
++    await request(app.getHttpServer())
++      .post('/auth/login/email')
++      .send({
++        email: 'reset@example.com',
++        password: 'NewPassword123',
++      })
++      .expect(201);
++  });
++});
++
++async function signup(app: INestApplication, email: string) {
++  const response = await request(app.getHttpServer())
++    .post('/auth/signup/email')
++    .send({
++      email,
++      password: 'Password123',
++    })
++    .expect(201);
++
++  return response.body;
++}
++
++function findLatestMailBySubject(
++  mails: Array<{ subject: string; html: string }>,
++  subjectPart: string,
++) {
++  const mail = [...mails].reverse().find((item) => item.subject.includes(subjectPart));
++
++  if (!mail) {
++    throw new Error(`Mail with subject containing "${subjectPart}" not found`);
++  }
++
++  return mail;
++}
++
++function extractTokenFromHtml(html: string) {
++  const match = html.match(/token=([a-f0-9]+)/i);
++
++  if (!match) {
++    throw new Error(`Token not found in html: ${html}`);
++  }
++
++  return match[1];
++}
+diff --git a/src/modules/auth/auth.module.ts b/src/modules/auth/auth.module.ts
+index e27b47f..c4c07a1 100644
+--- a/src/modules/auth/auth.module.ts
++++ b/src/modules/auth/auth.module.ts
+@@ -19,14 +19,19 @@ import { BcryptPasswordHasher } from './infrastructure/security/bcrypt-password-
+ import { SignupEmailUseCase } from './application/use-cases/signup-email.usecase';
+ import { LoginEmailUseCase } from './application/use-cases/login-email.usecase';
+ import { LoginOAuthUseCase } from './application/use-cases/login-oauth.usecase';
++import { ListIdentitiesUseCase } from './application/use-cases/list-identities.usecase';
++import { LinkOAuthIdentityUseCase } from './application/use-cases/link-oauth-identity.usecase';
+ import { LogoutUseCase } from './application/use-cases/logout.usecase';
+ import { RefreshSessionUseCase } from './application/use-cases/refresh-session.usecase';
++import { RequestPasswordResetUseCase } from './application/use-cases/request-password-reset.usecase';
+ import { VerifyEmailUseCase } from './application/use-cases/verify-email.usecase';
+ import { ResendVerificationUseCase } from './application/use-cases/resend-verification.usecase';
++import { ResetPasswordUseCase } from './application/use-cases/reset-password.usecase';
+ import { SendVerificationEmailUseCase } from './application/use-cases/email-verification.token.usecase';
+ import { VERIFY_MAIL_TOKEN } from './constants/verify-mail.tokens';
+ import { PostgresEmailVerificationTokenRepository } from './infrastructure/persistence/email-verification.token.repository.postgres';
+-import { ConsoleMailService } from './mail/console-mail.service';
++import { PostgresPasswordResetTokenRepository } from './infrastructure/persistence/password-reset.token.repository.postgres';
++import { ResendMailService } from './mail/resend-mail.service';
+ 
+ @Module({
+   imports: [
+@@ -49,8 +54,12 @@ import { ConsoleMailService } from './mail/console-mail.service';
+     SignupEmailUseCase,
+     LoginEmailUseCase,
+     LoginOAuthUseCase,
++    ListIdentitiesUseCase,
++    LinkOAuthIdentityUseCase,
+     LogoutUseCase,
+     RefreshSessionUseCase,
++    RequestPasswordResetUseCase,
++    ResetPasswordUseCase,
+     VerifyEmailUseCase,
+     ResendVerificationUseCase,
+     SendVerificationEmailUseCase,
+@@ -76,13 +85,17 @@ import { ConsoleMailService } from './mail/console-mail.service';
+       provide: VERIFY_MAIL_TOKEN.EMAIL_VERIFICATION_TOKEN_REPO,
+       useClass: PostgresEmailVerificationTokenRepository,
+     },
++    {
++      provide: VERIFY_MAIL_TOKEN.PASSWORD_RESET_TOKEN_REPO,
++      useClass: PostgresPasswordResetTokenRepository,
++    },
+     {
+       provide: VERIFY_MAIL_TOKEN.USER,
+       useClass: PostgresUserRepository,
+     },
+     {
+       provide: VERIFY_MAIL_TOKEN.MAIL_SERVICE,
+-      useClass: ConsoleMailService,
++      useClass: ResendMailService,
+     }
+   ],
+   controllers: [AuthController],
+diff --git a/src/modules/auth/constants/verify-mail.tokens.ts b/src/modules/auth/constants/verify-mail.tokens.ts
+index 5cbf5c7..3081705 100644
+--- a/src/modules/auth/constants/verify-mail.tokens.ts
++++ b/src/modules/auth/constants/verify-mail.tokens.ts
+@@ -1,5 +1,6 @@
+ export const VERIFY_MAIL_TOKEN = {
+   MAIL_SERVICE: 'MAIL_SERVICE',
+   EMAIL_VERIFICATION_TOKEN_REPO: 'EMAIL_VERIFICATION_TOKEN_REPO',
++  PASSWORD_RESET_TOKEN_REPO: 'PASSWORD_RESET_TOKEN_REPO',
+   USER: 'USER_REPOSITORY',
+-};
+\ No newline at end of file
++};
+diff --git a/src/modules/auth/domain/entities/password-reset.token.entity.ts b/src/modules/auth/domain/entities/password-reset.token.entity.ts
+new file mode 100644
+index 0000000..898643c
+--- /dev/null
++++ b/src/modules/auth/domain/entities/password-reset.token.entity.ts
+@@ -0,0 +1,21 @@
++export class PasswordResetToken {
++  constructor(
++    readonly id: string,
++    readonly userId: string,
++    readonly tokenHash: string,
++    readonly expiresAt: Date,
++    private consumed: boolean,
++  ) {}
++
++  isExpired() {
++    return new Date() > this.expiresAt;
++  }
++
++  isConsumed() {
++    return this.consumed;
++  }
++
++  consume() {
++    this.consumed = true;
++  }
++}
+diff --git a/src/modules/auth/domain/repositories/auth-identity.repository.ts b/src/modules/auth/domain/repositories/auth-identity.repository.ts
+index c0fcbcb..7a6643d 100644
+--- a/src/modules/auth/domain/repositories/auth-identity.repository.ts
++++ b/src/modules/auth/domain/repositories/auth-identity.repository.ts
+@@ -2,6 +2,13 @@ import { AuthProvider } from "../authProviders";
+ import { AuthIdentity } from "../entities/auth-identity.entity";
+ 
+ export interface AuthIdentityRepository {
++  findByUserId(userId: string): Promise<AuthIdentity[]>;
++
++  findByUserIdAndProvider(
++    userId: string,
++    provider: AuthProvider
++  ): Promise<AuthIdentity | null>;
++
+   findByProviderUserId(
+     provider: AuthProvider,
+     providerUserId: string
+@@ -16,4 +23,6 @@ export interface AuthIdentityRepository {
+     email?: string | null;
+     passwordHash?: string | null;
+   }): Promise<AuthIdentity>;
++
++  save(identity: AuthIdentity): Promise<void>;
+ }
+diff --git a/src/modules/auth/domain/repositories/auth-session.repository.ts b/src/modules/auth/domain/repositories/auth-session.repository.ts
+index 90a3697..c9a8056 100644
+--- a/src/modules/auth/domain/repositories/auth-session.repository.ts
++++ b/src/modules/auth/domain/repositories/auth-session.repository.ts
+@@ -14,7 +14,13 @@ export interface SessionRepository {
+ 
+   findByRefreshTokenHash(refreshTokenHash: string): Promise<AuthSession | null>;
+ 
++  findByUserId(userId: string): Promise<AuthSession[]>;
++
+   delete(id: string): Promise<void>;
+ 
++  deleteByIdAndUserId(id: string, userId: string): Promise<void>;
++
++  deleteByUserId(userId: string): Promise<void>;
++
+   deleteByRefreshTokenHash(refreshTokenHash: string): Promise<void>;
+ }
+diff --git a/src/modules/auth/domain/repositories/password-reset.token.repository.ts b/src/modules/auth/domain/repositories/password-reset.token.repository.ts
+new file mode 100644
+index 0000000..7e26aa3
+--- /dev/null
++++ b/src/modules/auth/domain/repositories/password-reset.token.repository.ts
+@@ -0,0 +1,8 @@
++import { PasswordResetToken } from "../entities/password-reset.token.entity";
++
++export interface PasswordResetTokenRepository {
++  create(token: PasswordResetToken): Promise<void>;
++  findByHash(hash: string): Promise<PasswordResetToken | null>;
++  consume(token: PasswordResetToken): Promise<void>;
++  deleteByUser(userId: string): Promise<void>;
++}
+diff --git a/src/modules/auth/dto/forgot-password.dto.ts b/src/modules/auth/dto/forgot-password.dto.ts
+new file mode 100644
+index 0000000..bbedf08
+--- /dev/null
++++ b/src/modules/auth/dto/forgot-password.dto.ts
+@@ -0,0 +1,6 @@
++import { IsEmail } from 'class-validator';
++
++export class ForgotPasswordDto {
++  @IsEmail()
++  email: string;
++}
+diff --git a/src/modules/auth/dto/reset-password.dto.ts b/src/modules/auth/dto/reset-password.dto.ts
+new file mode 100644
+index 0000000..762dfa2
+--- /dev/null
++++ b/src/modules/auth/dto/reset-password.dto.ts
+@@ -0,0 +1,11 @@
++import { IsString, MinLength } from 'class-validator';
++
++export class ResetPasswordDto {
++  @IsString()
++  @MinLength(20)
++  token: string;
++
++  @IsString()
++  @MinLength(8)
++  newPassword: string;
++}
+diff --git a/src/modules/auth/infrastructure/persistence/auth-identity.repository.postgres.ts b/src/modules/auth/infrastructure/persistence/auth-identity.repository.postgres.ts
+index 8199504..fc6dfcc 100644
+--- a/src/modules/auth/infrastructure/persistence/auth-identity.repository.postgres.ts
++++ b/src/modules/auth/infrastructure/persistence/auth-identity.repository.postgres.ts
+@@ -7,6 +7,37 @@ import { AuthIdentityRepository } from '../../domain/repositories/auth-identity.
+ 
+ @Injectable()
+ export class PostgresAuthIdentityRepository implements AuthIdentityRepository {
++  async findByUserId(userId: string): Promise<AuthIdentity[]> {
++    const { rows } = await getPgPool().query(
++      `
++      SELECT id, user_id, provider, provider_user_id, email, password_hash, created_at, updated_at
++      FROM auth_identities
++      WHERE user_id = $1
++      ORDER BY created_at ASC
++      `,
++      [userId],
++    );
++
++    return rows.map((row) => this.mapRow(row));
++  }
++
++  async findByUserIdAndProvider(
++    userId: string,
++    provider: AuthProvider,
++  ): Promise<AuthIdentity | null> {
++    const { rows } = await getPgPool().query(
++      `
++      SELECT id, user_id, provider, provider_user_id, email, password_hash, created_at, updated_at
++      FROM auth_identities
++      WHERE user_id = $1 AND provider = $2
++      LIMIT 1
++      `,
++      [userId, provider],
++    );
++
++    return rows[0] ? this.mapRow(rows[0]) : null;
++  }
++
+   async findByProviderUserId(
+     provider: AuthProvider,
+     providerUserId: string,
+@@ -23,18 +54,7 @@ export class PostgresAuthIdentityRepository implements AuthIdentityRepository {
+ 
+     const row = rows[0];
+ 
+-    return row
+-      ? new AuthIdentity(
+-          row.id,
+-          row.user_id,
+-          row.provider,
+-          row.provider_user_id ?? null,
+-          row.email ?? null,
+-          row.password_hash ?? null,
+-          new Date(row.created_at),
+-          new Date(row.updated_at),
+-        )
+-      : null;
++    return row ? this.mapRow(row) : null;
+   }
+ 
+   async findEmailIdentityByEmail(email: string): Promise<AuthIdentity | null> {
+@@ -50,18 +70,7 @@ export class PostgresAuthIdentityRepository implements AuthIdentityRepository {
+ 
+     const row = rows[0];
+ 
+-    return row
+-      ? new AuthIdentity(
+-          row.id,
+-          row.user_id,
+-          row.provider,
+-          row.provider_user_id ?? null,
+-          row.email ?? null,
+-          row.password_hash ?? null,
+-          new Date(row.created_at),
+-          new Date(row.updated_at),
+-        )
+-      : null;
++    return row ? this.mapRow(row) : null;
+   }
+ 
+   async create(data: {
+@@ -101,6 +110,29 @@ export class PostgresAuthIdentityRepository implements AuthIdentityRepository {
+ 
+     const row = rows[0];
+ 
++    return this.mapRow(row);
++  }
++
++  async save(identity: AuthIdentity): Promise<void> {
++    await getPgPool().query(
++      `
++      UPDATE auth_identities
++      SET
++        email = $1,
++        password_hash = $2,
++        updated_at = $3
++      WHERE id = $4
++      `,
++      [
++        identity.email ?? null,
++        identity.getPasswordHash(),
++        identity.getUpdatedAt(),
++        identity.id,
++      ],
++    );
++  }
++
++  private mapRow(row: any): AuthIdentity {
+     return new AuthIdentity(
+       row.id,
+       row.user_id,
+diff --git a/src/modules/auth/infrastructure/persistence/password-reset.token.repository.postgres.ts b/src/modules/auth/infrastructure/persistence/password-reset.token.repository.postgres.ts
+new file mode 100644
+index 0000000..cd0f33c
+--- /dev/null
++++ b/src/modules/auth/infrastructure/persistence/password-reset.token.repository.postgres.ts
+@@ -0,0 +1,54 @@
++import { Injectable } from "@nestjs/common";
++import { getPgPool } from "src/infrastructure/database/postgres.connection";
++import { PasswordResetToken } from "../../domain/entities/password-reset.token.entity";
++import { PasswordResetTokenRepository } from "../../domain/repositories/password-reset.token.repository";
++
++@Injectable()
++export class PostgresPasswordResetTokenRepository
++  implements PasswordResetTokenRepository {
++  async create(token: PasswordResetToken) {
++    await getPgPool().query(
++      `INSERT INTO password_reset_tokens
++       (id, user_id, token_hash, expires_at, consumed)
++       VALUES ($1,$2,$3,$4,$5)`,
++      [token.id, token.userId, token.tokenHash, token.expiresAt, false],
++    );
++  }
++
++  async findByHash(hash: string) {
++    const { rows } = await getPgPool().query(
++      `SELECT * FROM password_reset_tokens
++       WHERE token_hash=$1`,
++      [hash],
++    );
++
++    if (!rows.length) return null;
++
++    const row = rows[0];
++
++    return new PasswordResetToken(
++      row.id,
++      row.user_id,
++      row.token_hash,
++      new Date(row.expires_at),
++      row.consumed,
++    );
++  }
++
++  async consume(token: PasswordResetToken) {
++    await getPgPool().query(
++      `UPDATE password_reset_tokens
++       SET consumed=true
++       WHERE id=$1`,
++      [token.id],
++    );
++  }
++
++  async deleteByUser(userId: string) {
++    await getPgPool().query(
++      `DELETE FROM password_reset_tokens
++       WHERE user_id=$1`,
++      [userId],
++    );
++  }
++}
+diff --git a/src/modules/auth/infrastructure/persistence/session.repository.postgres.ts b/src/modules/auth/infrastructure/persistence/session.repository.postgres.ts
+index e156fd7..7896003 100644
+--- a/src/modules/auth/infrastructure/persistence/session.repository.postgres.ts
++++ b/src/modules/auth/infrastructure/persistence/session.repository.postgres.ts
+@@ -61,10 +61,37 @@ export class PostgresSessionRepository implements SessionRepository {
+     return rows[0] ? this.mapRow(rows[0]) : null;
+   }
+ 
++  async findByUserId(userId: string): Promise<AuthSession[]> {
++    const { rows } = await getPgPool().query(
++      `
++      SELECT *
++      FROM auth_sessions
++      WHERE user_id = $1
++      ORDER BY created_at DESC
++      `,
++      [userId],
++    );
++
++    return rows.map((row) => this.mapRow(row));
++  }
++
+   async delete(id: string): Promise<void> {
+     await getPgPool().query(`DELETE FROM auth_sessions WHERE id = $1`, [id]);
+   }
+ 
++  async deleteByIdAndUserId(id: string, userId: string): Promise<void> {
++    await getPgPool().query(
++      `DELETE FROM auth_sessions WHERE id = $1 AND user_id = $2`,
++      [id, userId],
++    );
++  }
++
++  async deleteByUserId(userId: string): Promise<void> {
++    await getPgPool().query(`DELETE FROM auth_sessions WHERE user_id = $1`, [
++      userId,
++    ]);
++  }
++
+   async deleteByRefreshTokenHash(refreshTokenHash: string): Promise<void> {
+     await getPgPool().query(
+       `DELETE FROM auth_sessions WHERE refresh_token = $1`,
+diff --git a/src/security/request-user.ts b/src/security/request-user.ts
+index 8532cc4..95ba530 100644
+--- a/src/security/request-user.ts
++++ b/src/security/request-user.ts
+@@ -1,5 +1,6 @@
+ export interface RequestUser {
+   userId: string;
++  sessionId: string | null;
+   customerId: string | null;
+   role: 'CUSTOMER' | 'ADMIN' | 'OPERATOR';
+ }

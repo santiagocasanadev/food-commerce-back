@@ -14,7 +14,13 @@ export interface SessionRepository {
 
   findByRefreshTokenHash(refreshTokenHash: string): Promise<AuthSession | null>;
 
+  findByUserId(userId: string): Promise<AuthSession[]>;
+
   delete(id: string): Promise<void>;
+
+  deleteByIdAndUserId(id: string, userId: string): Promise<void>;
+
+  deleteByUserId(userId: string): Promise<void>;
 
   deleteByRefreshTokenHash(refreshTokenHash: string): Promise<void>;
 }
