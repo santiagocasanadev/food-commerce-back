@@ -14,12 +14,16 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  // Usa SQLite en desarrollo local. Postgres requiere AWS credenciales.
-  // Para usar Postgres, configura AWS CLI: aws configure
-  if (process.env.NODE_ENV === 'development') {
+  const useSqlite = process.env.USE_SQLITE === 'true';
+
+  if (useSqlite) {
+    initSchema();
+    logger.warn('Bootstrapping application with SQLite in-memory database');
+  } else {
     await initPostgres();
+    logger.log('Bootstrapping application with Postgres');
   }
-  initSchema();
+
   const app = await NestFactory.create(AppModule);
 
   app.useGlobalFilters(new GlobalExceptionFilter);
