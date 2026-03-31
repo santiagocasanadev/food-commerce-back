@@ -311,6 +311,36 @@ paths:
                 items:
                   $ref: '#/components/schemas/LinkedIdentity'
 
+  /auth/preferences:
+    get:
+      tags: [Auth]
+      summary: Get auth preferences and legal consent status for the authenticated user
+      operationId: getAuthPreferences
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthPreferences'
+    patch:
+      tags: [Auth]
+      summary: Update marketing preferences and legal consent flags for the authenticated user
+      operationId: updateAuthPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthPreferences'
+
   /auth/identities/link:
     post:
       tags: [Auth]
@@ -331,6 +361,19 @@ paths:
                 $ref: '#/components/schemas/LinkedIdentity'
         '409':
           description: The social account is already linked or the provider is already linked
+
+  /auth/observability/metrics:
+    get:
+      tags: [Auth]
+      summary: Get in-memory auth metrics collected by the telemetry service
+      operationId: getAuthMetrics
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthMetricsResponse'
 
   /auth/verify-email:
     post:
@@ -812,6 +855,16 @@ components:
         token:
           type: string
 
+    UpdatePreferencesRequest:
+      type: object
+      properties:
+        marketingOptIn:
+          type: boolean
+        acceptTerms:
+          type: boolean
+        acceptPrivacy:
+          type: boolean
+
     SuccessResponse:
       type: object
       required: [success]
@@ -859,6 +912,24 @@ components:
           nullable: true
         emailVerified:
           type: boolean
+        emailVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        marketingOptIn:
+          type: boolean
+        marketingConsentAt:
+          type: string
+          format: date-time
+          nullable: true
+        termsAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+        privacyAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
         role:
           type: string
           enum: [CUSTOMER, ADMIN, OPERATOR]
@@ -957,6 +1028,73 @@ components:
         linkedAt:
           type: string
           format: date-time
+
+    AuthPreferences:
+      type: object
+      required:
+        [emailVerified, marketingOptIn]
+      properties:
+        emailVerified:
+          type: boolean
+        emailVerifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+        marketingOptIn:
+          type: boolean
+        marketingConsentAt:
+          type: string
+          format: date-time
+          nullable: true
+        termsAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+        privacyAcceptedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AuthMetric:
+      type: object
+      required:
+        [useCase, total, success, failure, avgDurationMs]
+      properties:
+        useCase:
+          type: string
+        total:
+          type: integer
+        success:
+          type: integer
+        failure:
+          type: integer
+        avgDurationMs:
+          type: number
+          format: double
+        lastDurationMs:
+          type: number
+          format: double
+          nullable: true
+        lastStatus:
+          type: string
+          nullable: true
+          enum: [success, failure]
+        lastSeenAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AuthMetricsResponse:
+      type: object
+      required: [generatedAt, metrics]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthMetric'
 
     Catalog:
       type: object

@@ -21,6 +21,7 @@ import { CustomerContextService } from '../customers/application/customer-contex
 import { CartService } from '../cart/application/cart.service';
 import { Customer } from '../customers/domain/customers.entity';
 import { OAuthProviderFactory } from './infrastructure/oauth-provider.factory';
+import { AuthTelemetryService } from './application/auth-telemetry.service';
 
 class InMemoryUserRepository {
   users = new Map<string, User>();
@@ -48,6 +49,11 @@ class InMemoryUserRepository {
     gender?: string | null;
     role?: Role;
     emailVerified?: boolean;
+    emailVerifiedAt?: Date | null;
+    marketingOptIn?: boolean;
+    marketingConsentAt?: Date | null;
+    termsAcceptedAt?: Date | null;
+    privacyAcceptedAt?: Date | null;
   }) {
     const now = new Date();
     const user = new User(
@@ -59,6 +65,11 @@ class InMemoryUserRepository {
       data.birthDate ?? null,
       data.gender ?? null,
       data.emailVerified ?? false,
+      data.emailVerifiedAt ?? null,
+      data.marketingOptIn ?? false,
+      data.marketingConsentAt ?? null,
+      data.termsAcceptedAt ?? null,
+      data.privacyAcceptedAt ?? null,
       now,
       now,
       data.role ?? Role.CUSTOMER,
@@ -414,6 +425,7 @@ describe('Auth integration', () => {
     emailVerificationRepository.tokens.clear();
     passwordResetRepository.tokens.clear();
     customerContextService.customers.clear();
+    app.get(AuthTelemetryService).reset();
   });
 
   afterAll(async () => {
@@ -602,6 +614,34 @@ describe('Auth integration', () => {
     expect(identities.body.some((identity) => identity.provider === 'google')).toBe(true);
   });
 
+  it('updates auth preferences and preserves legal consent timestamps', async () => {
+    const signupResponse = await signup(app, 'prefs@example.com');
+
+    const updated = await request(app.getHttpServer())
+      .patch('/auth/preferences')
+      .set('Authorization', `Bearer ${signupResponse.accessToken}`)
+      .send({
+        marketingOptIn: true,
+        acceptTerms: true,
+        acceptPrivacy: true,
+      })
+      .expect(200);
+
+    expect(updated.body.marketingOptIn).toBe(true);
+    expect(updated.body.marketingConsentAt).toBeTruthy();
+    expect(updated.body.termsAcceptedAt).toBeTruthy();
+    expect(updated.body.privacyAcceptedAt).toBeTruthy();
+
+    const fetched = await request(app.getHttpServer())
+      .get('/auth/preferences')
+      .set('Authorization', `Bearer ${signupResponse.accessToken}`)
+      .expect(200);
+
+    expect(fetched.body.marketingOptIn).toBe(true);
+    expect(fetched.body.termsAcceptedAt).toBeTruthy();
+    expect(fetched.body.privacyAcceptedAt).toBeTruthy();
+  });
+
   it('rejects linking a social account already linked to another user', async () => {
     const firstUser = await signup(app, 'conflict1@example.com');
     const secondUser = await signup(app, 'conflict2@example.com');
@@ -664,6 +704,32 @@ describe('Auth integration', () => {
         password: 'NewPassword123',
       })
       .expect(201);
+  });
+
+  it('exposes auth metrics for the executed use cases', async () => {
+    await signup(app, 'metrics@example.com');
+
+    await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        type: 'email',
+        email: 'metrics@example.com',
+        password: 'Password123',
+      })
+      .expect(201);
+
+    const metrics = await request(app.getHttpServer())
+      .get('/auth/observability/metrics')
+      .set('Authorization', `Bearer ${(await signup(app, 'metrics-auth@example.com')).accessToken}`)
+      .expect(200);
+
+    expect(metrics.body.generatedAt).toBeTruthy();
+    expect(
+      metrics.body.metrics.some((metric) => metric.useCase === 'SignupEmailUseCase'),
+    ).toBe(true);
+    expect(
+      metrics.body.metrics.some((metric) => metric.useCase === 'UnifiedLoginEmail'),
+    ).toBe(true);
   });
 });
 

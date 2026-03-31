@@ -15,6 +15,11 @@ export interface UserRepository {
     gender?: string | null;
     role?: Role;
     emailVerified?: boolean;
+    emailVerifiedAt?: Date | null;
+    marketingOptIn?: boolean;
+    marketingConsentAt?: Date | null;
+    termsAcceptedAt?: Date | null;
+    privacyAcceptedAt?: Date | null;
   }): Promise<User>;
 
   save(user: User): Promise<void>;

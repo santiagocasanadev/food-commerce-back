@@ -45,6 +45,11 @@ export class PostgresUserRepository implements UserRepository {
     gender?: string | null;
     role?: Role;
     emailVerified?: boolean;
+    emailVerifiedAt?: Date | null;
+    marketingOptIn?: boolean;
+    marketingConsentAt?: Date | null;
+    termsAcceptedAt?: Date | null;
+    privacyAcceptedAt?: Date | null;
   }): Promise<User> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -60,11 +65,16 @@ export class PostgresUserRepository implements UserRepository {
         birth_date,
         gender,
         email_verified,
+        email_verified_at,
+        marketing_opt_in,
+        marketing_consent_at,
+        terms_accepted_at,
+        privacy_accepted_at,
         created_at,
         updated_at,
         role
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
       `,
       [
@@ -76,6 +86,11 @@ export class PostgresUserRepository implements UserRepository {
         data.birthDate ?? null,
         data.gender ?? null,
         data.emailVerified ?? false,
+        data.emailVerifiedAt ?? null,
+        data.marketingOptIn ?? false,
+        data.marketingConsentAt ?? null,
+        data.termsAcceptedAt ?? null,
+        data.privacyAcceptedAt ?? null,
         now,
         now,
         data.role ?? Role.CUSTOMER,
@@ -99,8 +114,13 @@ export class PostgresUserRepository implements UserRepository {
       birth_date = $6,
       gender = $7,
       role = $8,
+      email_verified_at = $9,
+      marketing_opt_in = $10,
+      marketing_consent_at = $11,
+      terms_accepted_at = $12,
+      privacy_accepted_at = $13,
       updated_at = NOW()
-    WHERE id = $9
+    WHERE id = $14
     `,
       [
         user.getEmail(),
@@ -111,6 +131,11 @@ export class PostgresUserRepository implements UserRepository {
         user.getBirthDate(),
         user.getGender(),
         user.getRole(),
+        user.getEmailVerifiedAt(),
+        user.isMarketingOptedIn(),
+        user.getMarketingConsentAt(),
+        user.getTermsAcceptedAt(),
+        user.getPrivacyAcceptedAt(),
         user.id
       ]
     );

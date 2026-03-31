@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { AuthTelemetryService } from './application/auth-telemetry.service';
 import { AuthService } from './application/auth.service';
 import { AuthOrchestrator } from './application/auth.orchestrator';
 import { AuthController } from './api/auth.controller';
@@ -19,6 +20,7 @@ import { BcryptPasswordHasher } from './infrastructure/security/bcrypt-password-
 import { SignupEmailUseCase } from './application/use-cases/signup-email.usecase';
 import { LoginEmailUseCase } from './application/use-cases/login-email.usecase';
 import { LoginOAuthUseCase } from './application/use-cases/login-oauth.usecase';
+import { GetAuthPreferencesUseCase } from './application/use-cases/get-auth-preferences.usecase';
 import { ListIdentitiesUseCase } from './application/use-cases/list-identities.usecase';
 import { LinkOAuthIdentityUseCase } from './application/use-cases/link-oauth-identity.usecase';
 import { LogoutUseCase } from './application/use-cases/logout.usecase';
@@ -32,6 +34,7 @@ import { VERIFY_MAIL_TOKEN } from './constants/verify-mail.tokens';
 import { PostgresEmailVerificationTokenRepository } from './infrastructure/persistence/email-verification.token.repository.postgres';
 import { PostgresPasswordResetTokenRepository } from './infrastructure/persistence/password-reset.token.repository.postgres';
 import { ResendMailService } from './mail/resend-mail.service';
+import { UpdateAuthPreferencesUseCase } from './application/use-cases/update-auth-preferences.usecase';
 
 @Module({
   imports: [
@@ -45,6 +48,7 @@ import { ResendMailService } from './mail/resend-mail.service';
     CartModule,
   ],
   providers: [
+    AuthTelemetryService,
     AuthService,
     AuthOrchestrator,
     JwtStrategy,
@@ -54,12 +58,14 @@ import { ResendMailService } from './mail/resend-mail.service';
     SignupEmailUseCase,
     LoginEmailUseCase,
     LoginOAuthUseCase,
+    GetAuthPreferencesUseCase,
     ListIdentitiesUseCase,
     LinkOAuthIdentityUseCase,
     LogoutUseCase,
     RefreshSessionUseCase,
     RequestPasswordResetUseCase,
     ResetPasswordUseCase,
+    UpdateAuthPreferencesUseCase,
     VerifyEmailUseCase,
     ResendVerificationUseCase,
     SendVerificationEmailUseCase,

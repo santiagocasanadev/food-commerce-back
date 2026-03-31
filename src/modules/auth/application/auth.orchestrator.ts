@@ -121,6 +121,19 @@ export class AuthOrchestrator {
     return this.authService.resetPassword(payload);
   }
 
+  async getPreferences(userId: string) {
+    return this.authService.getPreferences(userId);
+  }
+
+  async updatePreferences(payload: {
+    userId: string;
+    marketingOptIn?: boolean;
+    acceptTerms?: boolean;
+    acceptPrivacy?: boolean;
+  }) {
+    return this.authService.updatePreferences(payload);
+  }
+
   async listIdentities(userId: string) {
     const identities = await this.authService.listIdentities(userId);
 
@@ -145,6 +158,10 @@ export class AuthOrchestrator {
       email: identity.email,
       linkedAt: identity.createdAt,
     };
+  }
+
+  getAuthMetrics() {
+    return this.authService.getAuthMetrics();
   }
 
   private async attachCustomerContext(

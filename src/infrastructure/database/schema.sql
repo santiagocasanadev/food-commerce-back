@@ -11,6 +11,11 @@ CREATE TABLE users (
   gender VARCHAR(50),
   role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'ADMIN', 'OPERATOR')),
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  email_verified_at TIMESTAMP,
+  marketing_opt_in BOOLEAN NOT NULL DEFAULT FALSE,
+  marketing_consent_at TIMESTAMP,
+  terms_accepted_at TIMESTAMP,
+  privacy_accepted_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

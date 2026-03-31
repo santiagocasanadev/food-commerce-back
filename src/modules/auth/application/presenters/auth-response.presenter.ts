@@ -42,6 +42,11 @@ export class AuthResponsePresenter {
       birthDate: user.getBirthDate(),
       gender: user.getGender(),
       emailVerified: user.isEmailVerified(),
+      emailVerifiedAt: user.getEmailVerifiedAt(),
+      marketingOptIn: user.isMarketingOptedIn(),
+      marketingConsentAt: user.getMarketingConsentAt(),
+      termsAcceptedAt: user.getTermsAcceptedAt(),
+      privacyAcceptedAt: user.getPrivacyAcceptedAt(),
       role: user.getRole(),
     };
   }

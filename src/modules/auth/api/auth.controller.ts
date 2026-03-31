@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Ip, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Ip, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../../security/decorators/public.decorator';
 import { JwtAuthGuard } from '../../../security/guards/jwt-auth.guard';
@@ -15,6 +15,7 @@ import { LogoutDto } from '../dto/logout.dto';
 import { RefreshDto } from '../dto/refresh.dto';
 import { ResetPasswordDto } from '../dto/reset-password.dto';
 import { SignupEmailDto } from '../dto/signup-email.dto';
+import { UpdatePreferencesDto } from '../dto/update-preferences.dto';
 import { ResendVerificationUseCase } from '../application/use-cases/resend-verification.usecase';
 import { VerifyEmailUseCase } from '../application/use-cases/verify-email.usecase';
 
@@ -190,6 +191,21 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('preferences')
+  preferences(@Req() req) {
+    return this.authOrchestrator.getPreferences(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('preferences')
+  updatePreferences(@Req() req, @Body() dto: UpdatePreferencesDto) {
+    return this.authOrchestrator.updatePreferences({
+      userId: req.user.userId,
+      ...dto,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('identities/link')
   linkIdentity(@Req() req, @Body() dto: LinkIdentityDto) {
     return this.authOrchestrator.linkIdentity({
@@ -197,6 +213,12 @@ export class AuthController {
       provider: dto.provider,
       token: dto.token,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('observability/metrics')
+  authMetrics() {
+    return this.authOrchestrator.getAuthMetrics();
   }
 
   @Post('verify-email')

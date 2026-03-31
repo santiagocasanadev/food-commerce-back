@@ -10,6 +10,11 @@ export class User {
     private birthDate: Date | null,
     private gender: string | null,
     private emailVerified: boolean,
+    private emailVerifiedAt: Date | null,
+    private marketingOptIn: boolean,
+    private marketingConsentAt: Date | null,
+    private termsAcceptedAt: Date | null,
+    private privacyAcceptedAt: Date | null,
     readonly createdAt: Date,
     private updatedAt: Date,
     private role: Role,
@@ -43,9 +48,30 @@ export class User {
     return this.gender;
   }
 
+  getEmailVerifiedAt(): Date | null {
+    return this.emailVerifiedAt;
+  }
+
+  isMarketingOptedIn(): boolean {
+    return this.marketingOptIn;
+  }
+
+  getMarketingConsentAt(): Date | null {
+    return this.marketingConsentAt;
+  }
+
+  getTermsAcceptedAt(): Date | null {
+    return this.termsAcceptedAt;
+  }
+
+  getPrivacyAcceptedAt(): Date | null {
+    return this.privacyAcceptedAt;
+  }
+
   verifyEmail() {
     if (this.emailVerified) return;
     this.emailVerified = true;
+    this.emailVerifiedAt = new Date();
   }
 
   isEmailVerified() {
@@ -64,6 +90,11 @@ export class User {
     birthDate?: Date | null;
     gender?: string | null;
     emailVerified?: boolean;
+    emailVerifiedAt?: Date | null;
+    marketingOptIn?: boolean;
+    marketingConsentAt?: Date | null;
+    termsAcceptedAt?: Date | null;
+    privacyAcceptedAt?: Date | null;
   }) {
     if (data.email !== undefined) {
       this.email = data.email;
@@ -93,6 +124,51 @@ export class User {
       this.emailVerified = this.emailVerified || data.emailVerified;
     }
 
+    if (data.emailVerifiedAt !== undefined) {
+      this.emailVerifiedAt = data.emailVerifiedAt;
+    }
+
+    if (typeof data.marketingOptIn === 'boolean') {
+      this.marketingOptIn = data.marketingOptIn;
+    }
+
+    if (data.marketingConsentAt !== undefined) {
+      this.marketingConsentAt = data.marketingConsentAt;
+    }
+
+    if (data.termsAcceptedAt !== undefined) {
+      this.termsAcceptedAt = data.termsAcceptedAt;
+    }
+
+    if (data.privacyAcceptedAt !== undefined) {
+      this.privacyAcceptedAt = data.privacyAcceptedAt;
+    }
+
     this.updatedAt = new Date();
+  }
+
+  updatePreferences(data: {
+    marketingOptIn?: boolean;
+    acceptTerms?: boolean;
+    acceptPrivacy?: boolean;
+  }) {
+    const now = new Date();
+
+    if (typeof data.marketingOptIn === 'boolean') {
+      this.marketingOptIn = data.marketingOptIn;
+      if (data.marketingOptIn) {
+        this.marketingConsentAt = now;
+      }
+    }
+
+    if (data.acceptTerms) {
+      this.termsAcceptedAt = this.termsAcceptedAt ?? now;
+    }
+
+    if (data.acceptPrivacy) {
+      this.privacyAcceptedAt = this.privacyAcceptedAt ?? now;
+    }
+
+    this.updatedAt = now;
   }
 }
