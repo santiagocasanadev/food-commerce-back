@@ -10,8 +10,8 @@ VALUES ('p1','Ensalada Vegana','100% vegetal',18,1,'c1');
 INSERT INTO inventory (product_id, available_quantity, reserved_quantity)
 VALUES ('p1',10,0);
 
-INSERT INTO users (id, email, name, image_url, role, email_verified, created_at, updated_at)
-VALUES ('u1','juan@mail.com','Juan Perez',NULL,'CUSTOMER',1,datetime('now'),datetime('now'));
+INSERT INTO users (id, tenant_id, email, name, image_url, role, email_verified, created_at, updated_at)
+VALUES ('u1',NULL,'juan@mail.com','Juan Perez',NULL,'CUSTOMER',1,datetime('now'),datetime('now'));
 
 INSERT INTO auth_identities (id, user_id, provider, provider_user_id, email, password_hash, created_at, updated_at)
 VALUES ('ai1','u1','email',NULL,'juan@mail.com','$2b$12$examplehashedpasswordvalue',datetime('now'),datetime('now'));

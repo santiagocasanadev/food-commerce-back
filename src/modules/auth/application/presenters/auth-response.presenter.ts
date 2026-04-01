@@ -8,6 +8,7 @@ export type SessionTokens = {
   userId: string;
   sessionId: string;
   customerId: string | null;
+  tenantId: string | null;
 };
 
 export class AuthResponsePresenter {
@@ -35,6 +36,7 @@ export class AuthResponsePresenter {
   private static user(user: User) {
     return {
       id: user.id,
+      tenantId: user.getTenantId(),
       email: user.getEmail(),
       name: user.getName(),
       imageUrl: user.getImageUrl(),

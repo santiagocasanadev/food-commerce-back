@@ -22,6 +22,7 @@ export class SessionService {
   async createSession(params: {
     userId: string;
     role?: Role;
+    tenantId?: string | null;
     customerId?: string | null;
     userAgent?: string | null;
     ipAddress?: string | null;
@@ -46,6 +47,7 @@ export class SessionService {
       sub: params.userId,
       sid: persistedSession.id,
       role: claims.role,
+      tenantId: claims.tenantId,
       customerId: claims.customerId,
     });
 
@@ -55,6 +57,7 @@ export class SessionService {
       expiresAt,
       userId: params.userId,
       sessionId: persistedSession.id,
+      tenantId: claims.tenantId,
       customerId: claims.customerId,
     };
   }
@@ -128,19 +131,24 @@ export class SessionService {
   private async resolveClaims(params: {
     userId: string;
     role?: Role;
+    tenantId?: string | null;
     customerId?: string | null;
   }) {
     const user =
-      params.role === undefined
+      params.role === undefined || params.tenantId === undefined
         ? await this.userRepository.findById(params.userId)
         : null;
+    const resolvedRole = params.role ?? user?.getRole() ?? Role.CUSTOMER;
+    const resolvedTenantId =
+      params.tenantId ?? user?.getTenantId() ?? null;
     const customer =
-      params.customerId === undefined
+      params.customerId === undefined && resolvedRole === Role.CUSTOMER
         ? await this.customerContextService.ensureCustomerByUserId(params.userId)
         : null;
 
     return {
-      role: params.role ?? user?.getRole() ?? Role.CUSTOMER,
+      role: resolvedRole,
+      tenantId: resolvedTenantId,
       customerId: params.customerId ?? customer?.id ?? null,
     };
   }
