@@ -3,13 +3,14 @@
 -- =========================
 CREATE TABLE users (
   id UUID PRIMARY KEY,
+  tenant_id UUID,
   email VARCHAR(255) UNIQUE,
   name VARCHAR(255) NOT NULL,
   image_url TEXT,
   address TEXT,
   birth_date DATE,
   gender VARCHAR(50),
-  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'ADMIN', 'OPERATOR')),
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   email_verified_at TIMESTAMP,
   marketing_opt_in BOOLEAN NOT NULL DEFAULT FALSE,
@@ -133,7 +134,7 @@ CREATE TABLE inventory (
 CREATE TABLE customers (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE,
-  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'ADMIN', 'OPERATOR')),
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
   CONSTRAINT fk_customers_user
     FOREIGN KEY (user_id)
     REFERENCES users(id)

@@ -1,14 +1,17 @@
 import { Pool } from 'pg';
 import { getDbCredentials } from './postgres.secrets';
-import { getTenantContext } from './tenant-context';
-import { initPlatformPostgres } from './platform.connection';
 
-let defaultPool: Pool | null = null;
+let platformPool: Pool | null = null;
 
-export async function initPostgres(): Promise<void> {
-  await initPlatformPostgres();
+export async function initPlatformPostgres(): Promise<void> {
+  if (platformPool) {
+    return;
+  }
 
-  const connectionString = process.env.DATABASE_URL?.trim();
+  const connectionString = (
+    process.env.PLATFORM_DATABASE_URL?.trim() ||
+    process.env.DATABASE_URL?.trim()
+  );
 
   const connectionConfig = connectionString
     ? {
@@ -16,37 +19,31 @@ export async function initPostgres(): Promise<void> {
       }
     : await buildConnectionConfigFromSecret();
 
-  defaultPool = new Pool({
+  platformPool = new Pool({
     ...connectionConfig,
     ssl: {
       rejectUnauthorized: false,
     },
-    max: 10,
+    max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });
 
-  await defaultPool.query('SELECT 1');
+  await platformPool.query('SELECT 1');
 }
 
-export function getPgPool(): Pool {
-  const context = getTenantContext();
-
-  if (context?.pool) {
-    return context.pool;
+export function getPlatformPool(): Pool {
+  if (!platformPool) {
+    throw new Error('Platform Postgres pool not initialized');
   }
 
-  if (!defaultPool) {
-    throw new Error('Postgres pool not initialized');
-  }
-
-  return defaultPool;
+  return platformPool;
 }
 
 async function buildConnectionConfigFromSecret() {
   if (!process.env.DB_SECRET_NAME) {
     throw new Error(
-      'Postgres config missing. Define DATABASE_URL or DB_SECRET_NAME.',
+      'Platform Postgres config missing. Define PLATFORM_DATABASE_URL, DATABASE_URL or DB_SECRET_NAME.',
     );
   }
 

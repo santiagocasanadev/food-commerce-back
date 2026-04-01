@@ -1,6 +1,7 @@
 import {
   ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus
 } from '@nestjs/common';
+import { getTenantContext } from 'src/infrastructure/database/tenant-context';
     
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -33,6 +34,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
+      tenantId: getTenantContext()?.tenantId ?? null,
       status,
       message
     };
