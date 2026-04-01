@@ -2,5 +2,6 @@ export interface RequestUser {
   userId: string;
   sessionId: string | null;
   customerId: string | null;
-  role: 'CUSTOMER' | 'ADMIN' | 'OPERATOR';
+  tenantId: string | null;
+  role: 'CUSTOMER' | 'TENANT_STAFF' | 'TENANT_ADMIN' | 'PLATFORM_ADMIN';
 }

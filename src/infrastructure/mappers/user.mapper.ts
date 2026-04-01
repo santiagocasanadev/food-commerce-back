@@ -5,6 +5,7 @@ export class UserMapper {
   static toDomain(row: any): User {
     return new User(
       row.id,
+      row.tenant_id ?? null,
       row.email ?? null,
       row.name,
       row.image_url ?? row.avatar_url ?? null,
@@ -26,6 +27,7 @@ export class UserMapper {
   static toPersistence(user: User) {
     return {
       id: user.id,
+      tenant_id: user.getTenantId(),
       email: user.getEmail(),
       name: user.getName(),
       image_url: user.getImageUrl(),

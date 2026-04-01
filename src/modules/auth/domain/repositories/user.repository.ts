@@ -6,7 +6,12 @@ export interface UserRepository {
 
   findByEmail(email: string): Promise<User | null>;
 
+  findAll(): Promise<User[]>;
+
+  findByTenantId(tenantId: string): Promise<User[]>;
+
   create(data: {
+    tenantId?: string | null;
     email?: string | null;
     name: string;
     imageUrl?: string | null;
@@ -23,4 +28,6 @@ export interface UserRepository {
   }): Promise<User>;
 
   save(user: User): Promise<void>;
+
+  deleteById(id: string): Promise<void>;
 }

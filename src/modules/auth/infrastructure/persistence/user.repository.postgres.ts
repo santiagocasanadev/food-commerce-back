@@ -36,7 +36,34 @@ export class PostgresUserRepository implements UserRepository {
     return rows[0] ? UserMapper.toDomain(rows[0]) : null;
   }
 
+  async findAll(): Promise<User[]> {
+    const { rows } = await getPgPool().query(
+      `
+      SELECT *
+      FROM users
+      ORDER BY created_at DESC
+      `,
+    );
+
+    return rows.map((row) => UserMapper.toDomain(row));
+  }
+
+  async findByTenantId(tenantId: string): Promise<User[]> {
+    const { rows } = await getPgPool().query(
+      `
+      SELECT *
+      FROM users
+      WHERE tenant_id = $1
+      ORDER BY created_at DESC
+      `,
+      [tenantId],
+    );
+
+    return rows.map((row) => UserMapper.toDomain(row));
+  }
+
   async create(data: {
+    tenantId?: string | null;
     email?: string | null;
     name: string;
     imageUrl?: string | null;
@@ -58,6 +85,7 @@ export class PostgresUserRepository implements UserRepository {
       `
       INSERT INTO users (
         id,
+        tenant_id,
         email,
         name,
         image_url,
@@ -74,11 +102,12 @@ export class PostgresUserRepository implements UserRepository {
         updated_at,
         role
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING *
       `,
       [
         id,
+        data.tenantId ?? null,
         data.email ?? null,
         data.name,
         data.imageUrl ?? null,
@@ -106,23 +135,25 @@ export class PostgresUserRepository implements UserRepository {
       `
     UPDATE users
     SET
-      email = $1,
-      email_verified = $2,
-      name = $3,
-      image_url = $4,
-      address = $5,
-      birth_date = $6,
-      gender = $7,
-      role = $8,
-      email_verified_at = $9,
-      marketing_opt_in = $10,
-      marketing_consent_at = $11,
-      terms_accepted_at = $12,
-      privacy_accepted_at = $13,
+      tenant_id = $1,
+      email = $2,
+      email_verified = $3,
+      name = $4,
+      image_url = $5,
+      address = $6,
+      birth_date = $7,
+      gender = $8,
+      role = $9,
+      email_verified_at = $10,
+      marketing_opt_in = $11,
+      marketing_consent_at = $12,
+      terms_accepted_at = $13,
+      privacy_accepted_at = $14,
       updated_at = NOW()
-    WHERE id = $14
+    WHERE id = $15
     `,
       [
+        user.getTenantId(),
         user.getEmail(),
         user.isEmailVerified(),
         user.getName(),
@@ -138,6 +169,16 @@ export class PostgresUserRepository implements UserRepository {
         user.getPrivacyAcceptedAt(),
         user.id
       ]
+    );
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await getPgPool().query(
+      `
+      DELETE FROM users
+      WHERE id = $1
+      `,
+      [id],
     );
   }
 }

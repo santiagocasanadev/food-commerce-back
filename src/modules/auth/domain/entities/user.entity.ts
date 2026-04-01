@@ -3,6 +3,7 @@ import { Role } from "src/security/roles.enum";
 export class User {
   constructor(
     readonly id: string,
+    private tenantId: string | null,
     private email: string | null,
     private name: string,
     private imageUrl: string | null,
@@ -22,6 +23,10 @@ export class User {
 
   getEmail(): string | null {
     return this.email;
+  }
+
+  getTenantId(): string | null {
+    return this.tenantId;
   }
 
   getRole(): Role {
@@ -83,6 +88,8 @@ export class User {
   }
 
   updateProfile(data: {
+    tenantId?: string | null;
+    role?: Role;
     email?: string | null;
     name?: string | null;
     imageUrl?: string | null;
@@ -96,6 +103,14 @@ export class User {
     termsAcceptedAt?: Date | null;
     privacyAcceptedAt?: Date | null;
   }) {
+    if (data.tenantId !== undefined) {
+      this.tenantId = data.tenantId;
+    }
+
+    if (data.role !== undefined) {
+      this.role = data.role;
+    }
+
     if (data.email !== undefined) {
       this.email = data.email;
     }
