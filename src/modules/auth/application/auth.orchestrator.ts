@@ -165,19 +165,26 @@ export class AuthOrchestrator {
   }
 
   private async attachCustomerContext(
-    authResult: { userId: string; customerId: string | null; user?: { id: string } },
+    authResult: {
+      userId: string;
+      customerId: string | null;
+      user?: { id: string; role?: string };
+    },
     guestId?: string | null,
   ) {
+    const requiresCustomer = authResult.user?.role === 'CUSTOMER';
     const customer =
-      authResult.customerId
-        ? { id: authResult.customerId }
+      authResult.customerId || !requiresCustomer
+        ? authResult.customerId
+          ? { id: authResult.customerId }
+          : null
         : await this.customerContextService.ensureCustomerByUserId(authResult.userId);
-    if (guestId) {
+    if (guestId && customer) {
       await this.cartService.mergeCart(guestId, customer.id);
     }
     return {
       ...authResult,
-      customerId: customer.id,
+      customerId: customer?.id ?? null,
     };
   }
 }
