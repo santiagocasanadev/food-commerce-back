@@ -70,11 +70,15 @@ export class LoginOAuthUseCase {
       });
     }
 
-    const customer = await this.customerContextService.ensureCustomerByUserId(user.id);
+    const customer =
+      user.getRole() === Role.CUSTOMER
+        ? await this.customerContextService.ensureCustomerByUserId(user.id)
+        : null;
     const session = await this.sessionService.createSession({
       userId: user.id,
       role: user.getRole(),
-      customerId: customer.id,
+      tenantId: user.getTenantId(),
+      customerId: customer?.id ?? null,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });

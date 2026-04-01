@@ -1,5 +1,6 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
+import { Role } from 'src/security/roles.enum';
 import { AUTH_INJECTION_TOKENS } from '../../constants/injection-tokens';
 import type { AuthIdentityRepository } from '../../domain/repositories/auth-identity.repository';
 import type { UserRepository } from '../../domain/repositories/user.repository';
@@ -48,12 +49,16 @@ export class LoginEmailUseCase {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    const customer = await this.customerContextService.ensureCustomerByUserId(user.id);
+    const customer =
+      user.getRole() === Role.CUSTOMER
+        ? await this.customerContextService.ensureCustomerByUserId(user.id)
+        : null;
 
     const session = await this.sessionService.createSession({
       userId: user.id,
       role: user.getRole(),
-      customerId: customer.id,
+      tenantId: user.getTenantId(),
+      customerId: customer?.id ?? null,
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
     });

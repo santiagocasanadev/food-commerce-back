@@ -59,6 +59,7 @@ export class SignupEmailUseCase {
         const session = await this.sessionService.createSession({
             userId: user.id,
             role: user.getRole(),
+            tenantId: user.getTenantId(),
             customerId: customer.id,
             userAgent: input.userAgent,
             ipAddress: input.ipAddress,
