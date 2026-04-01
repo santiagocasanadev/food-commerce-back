@@ -9,6 +9,8 @@ servers:
 
 tags:
   - name: Auth
+  - name: Users
+  - name: Platform
   - name: Catalog
   - name: Products
   - name: Inventory
@@ -455,6 +457,248 @@ paths:
         '400':
           description: Invalid token or unsupported credential type
 
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get the authenticated user profile
+      operationId: getMyUser
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserView'
+    patch:
+      tags: [Users]
+      summary: Update the authenticated user profile
+      operationId: updateMyUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserView'
+
+  /admin/users:
+    get:
+      tags: [Users]
+      summary: List users in scope for the authenticated admin
+      operationId: listUsers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserView'
+    post:
+      tags: [Users]
+      summary: Create a user profile and optional email credentials
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserView'
+        '409':
+          description: Email already used
+
+  /admin/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get a user by id within admin scope
+      operationId: getUserById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserView'
+        '404':
+          description: User not found
+    patch:
+      tags: [Users]
+      summary: Update a user inside admin scope
+      operationId: updateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserView'
+        '403':
+          description: Outside tenant scope or insufficient role
+        '404':
+          description: User not found
+        '409':
+          description: Email already used
+    delete:
+      tags: [Users]
+      summary: Delete a user inside admin scope
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: Outside tenant scope or insufficient role
+        '404':
+          description: User not found
+
+  /platform/tenants:
+    get:
+      tags: [Platform]
+      summary: List platform tenants from the central platform database
+      operationId: listPlatformTenants
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlatformTenant'
+    post:
+      tags: [Platform]
+      summary: Create a platform tenant entry with its dedicated database connection
+      operationId: createPlatformTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlatformTenantRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenant'
+        '409':
+          description: Platform tenant slug already exists
+
+  /platform/tenants/{id}:
+    get:
+      tags: [Platform]
+      summary: Get one platform tenant by id
+      operationId: getPlatformTenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenant'
+        '404':
+          description: Platform tenant not found
+    patch:
+      tags: [Platform]
+      summary: Update platform tenant metadata and database connection
+      operationId: updatePlatformTenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlatformTenantRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenant'
+        '404':
+          description: Platform tenant not found
+        '409':
+          description: Platform tenant slug already exists
+    delete:
+      tags: [Platform]
+      summary: Delete a platform tenant entry
+      operationId: deletePlatformTenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Platform tenant not found
+
   /catalogs:
     get:
       tags: [Catalog]
@@ -865,6 +1109,119 @@ components:
         acceptPrivacy:
           type: boolean
 
+    CreateUserRequest:
+      type: object
+      required: [name]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+        password:
+          type: string
+          minLength: 8
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+        password:
+          type: string
+          minLength: 8
+
+    UpdateMeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        birthDate:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+
+    CreatePlatformTenantRequest:
+      type: object
+      required: [slug, name, dbConnectionUrl]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        dbConnectionUrl:
+          type: string
+        active:
+          type: boolean
+
+    UpdatePlatformTenantRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        dbConnectionUrl:
+          type: string
+        active:
+          type: boolean
+
     SuccessResponse:
       type: object
       required: [success]
@@ -891,6 +1248,10 @@ components:
         id:
           type: string
           format: uuid
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
         email:
           type: string
           format: email
@@ -932,11 +1293,46 @@ components:
           nullable: true
         role:
           type: string
-          enum: [CUSTOMER, ADMIN, OPERATOR]
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+
+    UserView:
+      allOf:
+        - $ref: '#/components/schemas/AuthUser'
+        - type: object
+          required: [createdAt, updatedAt]
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PlatformTenant:
+      type: object
+      required: [id, slug, name, dbConnectionUrl, active, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        dbConnectionUrl:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
     AuthResponse:
       type: object
-      required: [accessToken, refreshToken, expiresAt, userId, sessionId, customerId, user]
+      required: [accessToken, refreshToken, expiresAt, userId, sessionId, tenantId, customerId, user]
       properties:
         accessToken:
           type: string
@@ -951,6 +1347,10 @@ components:
         sessionId:
           type: string
           format: uuid
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
         customerId:
           type: string
           format: uuid
@@ -969,7 +1369,7 @@ components:
 
     RefreshResponse:
       type: object
-      required: [accessToken, refreshToken, expiresAt, userId, sessionId, customerId]
+      required: [accessToken, refreshToken, expiresAt, userId, sessionId, tenantId, customerId]
       properties:
         accessToken:
           type: string
@@ -984,6 +1384,10 @@ components:
         sessionId:
           type: string
           format: uuid
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
         customerId:
           type: string
           format: uuid
