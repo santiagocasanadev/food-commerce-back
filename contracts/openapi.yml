@@ -11,6 +11,7 @@ tags:
   - name: Auth
   - name: Users
   - name: Platform
+  - name: Health
   - name: Catalog
   - name: Products
   - name: Inventory
@@ -699,7 +700,43 @@ paths:
         '404':
           description: Platform tenant not found
 
-  /catalogs:
+  /health:
+    get:
+      tags: [Health]
+      summary: Get combined platform and tenant health checks
+      operationId: getOverallHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+        '503':
+          description: One or more dependencies are unavailable
+
+  /health/platform:
+    get:
+      tags: [Health]
+      summary: Check platform database connectivity
+      operationId: getPlatformHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+        '503':
+          description: Platform database unavailable
+
+  /health/tenant:
+    get:
+      tags: [Health]
+      summary: Check current tenant database connectivity
+      operationId: getTenantHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+        '503':
+          description: Tenant database unavailable
+
+  /catalog:
     get:
       tags: [Catalog]
       summary: List catalogs
