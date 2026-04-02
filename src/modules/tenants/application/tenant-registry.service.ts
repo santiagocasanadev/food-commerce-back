@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { getOrCreateTenantPool } from 'src/infrastructure/database/tenant-pool.manager';
 import { PlatformTenant } from '../domain/platform-tenant.entity';
 import { PlatformTenantRepository } from '../infrastructure/platform-tenant.repository.postgres';
+import { describeConnectionTarget } from '../utils/masked-connection';
 
 @Injectable()
 export class TenantRegistryService {
@@ -35,6 +36,15 @@ export class TenantRegistryService {
   }) {
     const tenantId = firstHeaderValue(input.tenantId);
     const tenantSlugHeader = firstHeaderValue(input.tenantSlug);
+    this.logger.debug(
+      JSON.stringify({
+        scope: 'tenant-registry',
+        event: 'resolve_from_request',
+        tenantId,
+        tenantSlug: tenantSlugHeader,
+        host: input.host ?? null,
+      }),
+    );
 
     if (tenantId) {
       return this.findByIdCached(tenantId);
@@ -51,6 +61,14 @@ export class TenantRegistryService {
   }
 
   async resolveTenantPool(dbConnectionUrl: string, tenantId: string) {
+    this.logger.debug(
+      JSON.stringify({
+        scope: 'tenant-registry',
+        event: 'resolve_tenant_pool',
+        tenantId,
+        target: describeConnectionTarget(dbConnectionUrl),
+      }),
+    );
     return getOrCreateTenantPool(`tenant:${tenantId}`, {
       connectionString: dbConnectionUrl,
     });
@@ -70,8 +88,13 @@ export class TenantRegistryService {
     const cached = this.getCached(this.cacheById, id);
 
     if (cached !== undefined) {
+      this.logger.debug(
+        `Tenant registry cache hit by id "${id}" -> ${cached ? 'found' : 'not-found'}`,
+      );
       return cached;
     }
+
+    this.logger.debug(`Tenant registry cache miss by id "${id}"`);
 
     const tenant = await this.platformTenantRepository.findById(id);
     this.storeTenant(tenant);
@@ -83,8 +106,13 @@ export class TenantRegistryService {
     const cached = this.getCached(this.cacheBySlug, normalizedSlug);
 
     if (cached !== undefined) {
+      this.logger.debug(
+        `Tenant registry cache hit by slug "${normalizedSlug}" -> ${cached ? 'found' : 'not-found'}`,
+      );
       return cached;
     }
+
+    this.logger.debug(`Tenant registry cache miss by slug "${normalizedSlug}"`);
 
     const tenant = await this.platformTenantRepository.findBySlug(normalizedSlug);
     this.storeTenant(tenant);
@@ -93,6 +121,7 @@ export class TenantRegistryService {
         tenant: null,
         expiresAt: Date.now() + this.cacheTtlMs,
       });
+      this.logger.debug(`Tenant "${normalizedSlug}" cached as not found`);
     }
     return tenant;
   }
@@ -127,6 +156,9 @@ export class TenantRegistryService {
 
     this.cacheById.set(tenant.id, entry);
     this.cacheBySlug.set(tenant.getSlug(), entry);
+    this.logger.debug(
+      `Tenant "${tenant.getSlug()}" cached with id "${tenant.id}" for ${this.cacheTtlMs}ms`,
+    );
   }
 
   private resolveSlugFromHost(host?: string) {

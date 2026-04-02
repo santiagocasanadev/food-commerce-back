@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { Pool, PoolConfig } from 'pg';
+import { describeConnectionTarget } from 'src/modules/tenants/utils/masked-connection';
 
 const tenantPools = new Map<string, Pool>();
 const logger = new Logger('TenantPoolManager');
@@ -12,8 +13,19 @@ export async function getOrCreateTenantPool(
   const existing = tenantPools.get(cacheKey);
 
   if (existing) {
+    logger.debug(`Reusing tenant pool "${cacheKey}"`);
     return existing;
   }
+
+  const target = config.connectionString
+    ? describeConnectionTarget(config.connectionString)
+    : {
+        protocol: null,
+        username: config.user ?? null,
+        host: config.host ?? null,
+        port: config.port?.toString() ?? null,
+        database: config.database ?? null,
+      };
 
   let lastError: unknown;
 
@@ -37,6 +49,15 @@ export async function getOrCreateTenantPool(
     try {
       await pool.query('SELECT 1');
       tenantPools.set(cacheKey, pool);
+      logger.log(
+        JSON.stringify({
+          scope: 'tenant-db',
+          event: 'pool_connected',
+          cacheKey,
+          attempt: attempt + 1,
+          target,
+        }),
+      );
       if (attempt > 0) {
         logger.warn(
           `Tenant pool "${cacheKey}" connected after retry ${attempt + 1}/${RETRY_DELAYS_MS.length}`,
@@ -47,7 +68,15 @@ export async function getOrCreateTenantPool(
       lastError = error;
       await pool.end().catch(() => undefined);
       logger.warn(
-        `Tenant pool "${cacheKey}" connection attempt ${attempt + 1}/${RETRY_DELAYS_MS.length} failed`,
+        JSON.stringify({
+          scope: 'tenant-db',
+          event: 'pool_connection_failed',
+          cacheKey,
+          attempt: attempt + 1,
+          maxAttempts: RETRY_DELAYS_MS.length,
+          target,
+          message: error instanceof Error ? error.message : String(error),
+        }),
       );
     }
   }
