@@ -3,12 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { TenantRegistryService } from './tenant-registry.service';
 import { PlatformTenantRepository } from '../infrastructure/platform-tenant.repository.postgres';
 
 @Injectable()
 export class PlatformTenantsService {
   constructor(
     private readonly platformTenantRepository: PlatformTenantRepository,
+    private readonly tenantRegistryService: TenantRegistryService,
   ) {}
 
   async list() {
@@ -45,6 +47,10 @@ export class PlatformTenantsService {
       dbConnectionUrl: payload.dbConnectionUrl.trim(),
       active: payload.active,
     });
+    this.tenantRegistryService.invalidateTenantCache({
+      tenantId: tenant.id,
+      slug: tenant.getSlug(),
+    });
 
     return this.toView(tenant);
   }
@@ -64,6 +70,7 @@ export class PlatformTenantsService {
       throw new NotFoundException('Platform tenant not found');
     }
 
+    const previousSlug = tenant.getSlug();
     const nextSlug =
       payload.slug !== undefined ? normalizeSlug(payload.slug) : tenant.getSlug();
 
@@ -83,6 +90,14 @@ export class PlatformTenantsService {
     });
 
     await this.platformTenantRepository.save(tenant);
+    this.tenantRegistryService.invalidateTenantCache({
+      tenantId: tenant.id,
+      slug: previousSlug,
+    });
+    this.tenantRegistryService.invalidateTenantCache({
+      tenantId: tenant.id,
+      slug: tenant.getSlug(),
+    });
 
     return this.toView(tenant);
   }
@@ -95,6 +110,10 @@ export class PlatformTenantsService {
     }
 
     await this.platformTenantRepository.deleteById(id);
+    this.tenantRegistryService.invalidateTenantCache({
+      tenantId: tenant.id,
+      slug: tenant.getSlug(),
+    });
 
     return { success: true };
   }
