@@ -1,5 +1,13 @@
+-- =========================================================
+-- Tenant Database Schema
+-- Food Commerce API
+--
+-- This schema is intended for each client/business database.
+-- It contains the operational data for a single tenant.
+-- =========================================================
+
 -- =========================
--- Auth
+-- Auth / Users
 -- =========================
 CREATE TABLE users (
   id UUID PRIMARY KEY,
@@ -10,7 +18,8 @@ CREATE TABLE users (
   address TEXT,
   birth_date DATE,
   gender VARCHAR(50),
-  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER'
+    CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   email_verified_at TIMESTAMP,
   marketing_opt_in BOOLEAN NOT NULL DEFAULT FALSE,
@@ -21,10 +30,14 @@ CREATE TABLE users (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_users_role ON users(role);
+
 CREATE TABLE auth_identities (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
-  provider VARCHAR(50) NOT NULL CHECK (provider IN ('email', 'google', 'facebook', 'apple')),
+  provider VARCHAR(50) NOT NULL
+    CHECK (provider IN ('email', 'google', 'facebook', 'apple')),
   provider_user_id VARCHAR(255),
   email VARCHAR(255),
   password_hash TEXT,
@@ -41,6 +54,9 @@ CREATE UNIQUE INDEX uq_auth_identity_provider_user
 
 CREATE UNIQUE INDEX uq_auth_identity_email_provider
   ON auth_identities(provider, email);
+
+CREATE INDEX idx_auth_identity_user_id
+  ON auth_identities(user_id);
 
 CREATE TABLE auth_sessions (
   id UUID PRIMARY KEY,
@@ -89,9 +105,8 @@ CREATE TABLE password_reset_tokens (
 CREATE INDEX idx_password_reset_tokens_user_id
   ON password_reset_tokens(user_id);
 
-
 -- =========================
--- Catalogs
+-- Catalog
 -- =========================
 CREATE TABLE catalogs (
   id UUID PRIMARY KEY,
@@ -99,9 +114,6 @@ CREATE TABLE catalogs (
   active BOOLEAN NOT NULL
 );
 
--- =========================
--- Products
--- =========================
 CREATE TABLE products (
   id UUID PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -116,9 +128,6 @@ CREATE TABLE products (
 
 CREATE INDEX idx_products_catalog_id ON products(catalog_id);
 
--- =========================
--- Inventory
--- =========================
 CREATE TABLE inventory (
   product_id UUID PRIMARY KEY,
   available_quantity INTEGER NOT NULL CHECK (available_quantity >= 0),
@@ -129,12 +138,13 @@ CREATE TABLE inventory (
 );
 
 -- =========================
--- Customers
+-- Commerce / Customers
 -- =========================
 CREATE TABLE customers (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL UNIQUE,
-  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER' CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
+  role VARCHAR(50) NOT NULL DEFAULT 'CUSTOMER'
+    CHECK (role IN ('CUSTOMER', 'TENANT_STAFF', 'TENANT_ADMIN', 'PLATFORM_ADMIN')),
   CONSTRAINT fk_customers_user
     FOREIGN KEY (user_id)
     REFERENCES users(id)
@@ -143,9 +153,6 @@ CREATE TABLE customers (
 
 CREATE INDEX idx_customers_user_id ON customers(user_id);
 
--- =========================
--- Carts
--- =========================
 CREATE TABLE carts (
   id UUID PRIMARY KEY,
   customer_id UUID NOT NULL,
@@ -157,9 +164,6 @@ CREATE TABLE carts (
 
 CREATE INDEX idx_carts_customer_id ON carts(customer_id);
 
--- =========================
--- Cart Items
--- =========================
 CREATE TABLE cart_items (
   id UUID PRIMARY KEY,
   cart_id UUID NOT NULL,
@@ -177,9 +181,6 @@ CREATE TABLE cart_items (
 
 CREATE INDEX idx_cart_items_cart_id ON cart_items(cart_id);
 
--- =========================
--- Orders
--- =========================
 CREATE TABLE orders (
   id UUID PRIMARY KEY,
   customer_id UUID NOT NULL,
@@ -193,9 +194,6 @@ CREATE TABLE orders (
 
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 
--- =========================
--- Order Items
--- =========================
 CREATE TABLE order_items (
   id UUID PRIMARY KEY,
   order_id UUID NOT NULL,
@@ -213,9 +211,6 @@ CREATE TABLE order_items (
 
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 
--- =========================
--- Loyalty Accounts
--- =========================
 CREATE TABLE loyalty_accounts (
   customer_id UUID PRIMARY KEY,
   points INTEGER NOT NULL CHECK (points >= 0),

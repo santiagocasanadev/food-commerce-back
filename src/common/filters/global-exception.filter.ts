@@ -18,6 +18,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
     let message = 'Internal server error';
+    let detail: string | string[] | Record<string, unknown> | null = null;
+    let stack: string | null = null;
 
     if (exception instanceof HttpException) {
 
@@ -27,7 +29,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
         message = (res as any).message ?? res;
+        detail = res as Record<string, unknown>;
       }
+    } else if (exception instanceof Error) {
+      message = exception.message || message;
+      stack = exception.stack ?? null;
     }
 
     const errorLog = {
@@ -36,17 +42,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       method: request.method,
       tenantId: getTenantContext()?.tenantId ?? null,
       status,
-      message
+      message,
+      detail,
+      stack,
     };
 
     console.error(errorLog);
+
+    const isDevelopment = process.env.NODE_ENV !== 'production';
 
     response.status(status).json({
       timestamp: errorLog.timestamp,
       statusCode: status,
       path: request.url,
       method: request.method,
-      message
+      message,
+      ...(isDevelopment && detail ? { detail } : {}),
+      ...(isDevelopment && stack ? { stack } : {}),
     });
   }
 }
