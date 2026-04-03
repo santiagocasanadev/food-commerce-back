@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuthProvider } from 'src/modules/auth/domain/authProviders';
-import { AuthIdentity } from 'src/modules/auth/domain/entities/auth-identity.entity';
 import { PostgresAuthIdentityRepository } from 'src/modules/auth/infrastructure/persistence/auth-identity.repository.postgres';
 import { PostgresUserRepository } from 'src/modules/auth/infrastructure/persistence/user.repository.postgres';
 import { BcryptPasswordHasher } from 'src/modules/auth/infrastructure/security/bcrypt-password-hasher';
@@ -66,11 +65,6 @@ export class UsersService {
   }
 
   async list(actor: RequestUser) {
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      const users = await this.userRepository.findAll();
-      return users.map((user) => this.toView(user));
-    }
-
     this.ensureTenantAdmin(actor);
 
     const users = await this.userRepository.findByTenantId(actor.tenantId!);
@@ -183,10 +177,6 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      return user;
-    }
-
     this.ensureTenantAdmin(actor);
 
     if (!user.getTenantId() || user.getTenantId() !== actor.tenantId) {
@@ -209,10 +199,6 @@ export class UsersService {
   private resolveCreateRole(actor: RequestUser, requestedRole?: Role) {
     const role = requestedRole ?? Role.CUSTOMER;
 
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      return role;
-    }
-
     this.ensureTenantAdmin(actor);
 
     if (role === Role.PLATFORM_ADMIN) {
@@ -229,10 +215,6 @@ export class UsersService {
   ) {
     const role = requestedRole ?? currentRole;
 
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      return role;
-    }
-
     this.ensureTenantAdmin(actor);
 
     if (role === Role.PLATFORM_ADMIN) {
@@ -243,10 +225,6 @@ export class UsersService {
   }
 
   private resolveCreateTenantId(actor: RequestUser, requestedTenantId?: string | null) {
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      return requestedTenantId ?? null;
-    }
-
     this.ensureTenantAdmin(actor);
     return actor.tenantId;
   }
@@ -256,12 +234,8 @@ export class UsersService {
     requestedTenantId: string | null | undefined,
     currentTenantId: string | null,
   ) {
-    if (actor.role === Role.PLATFORM_ADMIN) {
-      return requestedTenantId === undefined ? currentTenantId : requestedTenantId;
-    }
-
     this.ensureTenantAdmin(actor);
-    return actor.tenantId;
+    return currentTenantId ?? actor.tenantId;
   }
 
   private async assertEmailAvailable(email: string, userIdToIgnore?: string) {

@@ -1,13 +1,13 @@
 import { Body, Controller, Get, NotFoundException, Param, Patch, UseGuards, UseInterceptors } from "@nestjs/common";
 import { InventoryService } from "../application/inventory.service";
-import { BACKOFFICE_ROLES } from "src/security/roles.enum";
+import { TENANT_BACKOFFICE_ROLES } from "src/security/roles.enum";
 import { RolesGuard } from "src/security/guards/roles.guard";
 import { Roles } from "src/security/decorators/roles.decorator";
 import { AuditInterceptor } from "src/infrastructure/logging/audit.interceptor";
 
 @UseInterceptors(AuditInterceptor)
 @UseGuards(RolesGuard)
-@Roles(...BACKOFFICE_ROLES)
+@Roles(...TENANT_BACKOFFICE_ROLES)
 @Controller('admin/inventory')
 export class AdminInventoryController {
   constructor(private readonly service: InventoryService) { }

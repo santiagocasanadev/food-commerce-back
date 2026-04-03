@@ -14,14 +14,14 @@ import { AuditInterceptor } from 'src/infrastructure/logging/audit.interceptor';
 import { Roles } from 'src/security/decorators/roles.decorator';
 import { RolesGuard } from 'src/security/guards/roles.guard';
 import { RequestUser } from 'src/security/request-user';
-import { USER_ADMIN_ROLES } from 'src/security/roles.enum';
+import { TENANT_ADMIN_ROLES } from 'src/security/roles.enum';
 import { UsersService } from '../application/users.service';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 
 @UseInterceptors(AuditInterceptor)
 @UseGuards(RolesGuard)
-@Roles(...USER_ADMIN_ROLES)
+@Roles(...TENANT_ADMIN_ROLES)
 @Controller('admin/users')
 export class AdminUsersController {
   constructor(private readonly usersService: UsersService) {}

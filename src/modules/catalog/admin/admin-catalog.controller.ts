@@ -1,13 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards, UseInterceptors } from "@nestjs/common";
 import { CatalogService } from "../application/catalog.service";
-import { BACKOFFICE_ROLES } from "src/security/roles.enum";
+import { TENANT_BACKOFFICE_ROLES } from "src/security/roles.enum";
 import { RolesGuard } from "src/security/guards/roles.guard";
 import { Roles } from "src/security/decorators/roles.decorator";
 import { AuditInterceptor } from "src/infrastructure/logging/audit.interceptor";
 
 @UseInterceptors(AuditInterceptor)
 @UseGuards(RolesGuard)
-@Roles(...BACKOFFICE_ROLES)
+@Roles(...TENANT_BACKOFFICE_ROLES)
 @Controller('admin/catalogs')
 export class AdminCatalogController {
   constructor(private readonly service: CatalogService) { }

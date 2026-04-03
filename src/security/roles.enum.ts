@@ -5,13 +5,11 @@ export enum Role {
   PLATFORM_ADMIN = 'PLATFORM_ADMIN',
 }
 
-export const BACKOFFICE_ROLES = [
-  Role.PLATFORM_ADMIN,
+export const TENANT_BACKOFFICE_ROLES = [
   Role.TENANT_ADMIN,
   Role.TENANT_STAFF,
 ] as const;
 
-export const USER_ADMIN_ROLES = [
-  Role.PLATFORM_ADMIN,
+export const TENANT_ADMIN_ROLES = [
   Role.TENANT_ADMIN,
 ] as const;
