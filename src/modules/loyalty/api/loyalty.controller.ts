@@ -1,14 +1,29 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { LoyaltyService } from '../application/loyalty.service';
-import { Public } from 'src/security/decorators/public.decorator';
+import { JwtAuthGuard } from 'src/security/guards/jwt-auth.guard';
+import { RequestUser } from 'src/security/request-user';
 
 @Controller('loyalty')
 export class LoyaltyController {
   constructor(private readonly service: LoyaltyService) {}
 
-  @Public()
+  @UseGuards(JwtAuthGuard)
   @Get(':customerId')
-  get(@Param('customerId') customerId: string) {
+  get(
+    @Req() req: { user: RequestUser },
+    @Param('customerId') customerId: string,
+  ) {
+    if (req.user.customerId !== customerId) {
+      throw new ForbiddenException('You can only access your own loyalty account');
+    }
+
     return this.service.get(customerId);
   }
 }
