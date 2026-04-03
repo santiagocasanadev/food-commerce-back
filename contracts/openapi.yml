@@ -630,6 +630,27 @@ paths:
         '409':
           description: Platform tenant slug already exists
 
+  /platform/tenants/onboard:
+    post:
+      tags: [Platform]
+      summary: Onboard a tenant and create its initial tenant admin in the target database
+      operationId: onboardPlatformTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardPlatformTenantRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenantOnboardingResult'
+        '409':
+          description: Platform tenant slug already exists or initial tenant admin email already exists
+
   /platform/admins:
     get:
       tags: [Platform]
@@ -1413,6 +1434,28 @@ components:
         active:
           type: boolean
 
+    OnboardPlatformTenantRequest:
+      type: object
+      required:
+        [slug, name, dbConnectionUrl, adminEmail, adminName, adminPassword]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        dbConnectionUrl:
+          type: string
+        adminEmail:
+          type: string
+          format: email
+        adminName:
+          type: string
+        adminPassword:
+          type: string
+          minLength: 8
+        active:
+          type: boolean
+
     PlatformLoginRequest:
       type: object
       required: [email, password]
@@ -1596,6 +1639,34 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    TenantBootstrapAdmin:
+      type: object
+      required: [id, tenantId, email, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [TENANT_ADMIN]
+
+    PlatformTenantOnboardingResult:
+      type: object
+      required: [tenant, initialAdmin]
+      properties:
+        tenant:
+          $ref: '#/components/schemas/PlatformTenant'
+        initialAdmin:
+          $ref: '#/components/schemas/TenantBootstrapAdmin'
 
     PlatformAuthResponse:
       type: object

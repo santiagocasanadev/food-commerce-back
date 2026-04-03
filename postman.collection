@@ -896,6 +896,39 @@
                     }
                 },
                 {
+                    "name": "Onboard Platform Tenant",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "pm.collectionVariables.set('platformTenantId', json.tenant?.id || '');"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{platformAdminToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"slug\": \"cliente-c\",\n  \"name\": \"Cliente C\",\n  \"dbConnectionUrl\": \"postgresql://postgres.<project-ref>:PASSWORD@aws-0-us-west-2.pooler.supabase.com:5432/postgres\",\n  \"adminEmail\": \"admin@cliente-c.com\",\n  \"adminName\": \"Tenant Admin\",\n  \"adminPassword\": \"Password123\",\n  \"active\": true\n}"
+                        },
+                        "url": "{{baseUrl}}/platform/tenants/onboard"
+                    }
+                },
+                {
                     "name": "Get Platform Tenant",
                     "request": {
                         "method": "GET",
