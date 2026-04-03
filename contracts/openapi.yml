@@ -1383,7 +1383,7 @@ components:
           nullable: true
         role:
           type: string
-          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN]
         password:
           type: string
           minLength: 8
@@ -1417,7 +1417,7 @@ components:
           nullable: true
         role:
           type: string
-          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN]
         password:
           type: string
           minLength: 8
@@ -1607,7 +1607,7 @@ components:
           nullable: true
         role:
           type: string
-          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN, PLATFORM_ADMIN]
+          enum: [CUSTOMER, TENANT_STAFF, TENANT_ADMIN]
 
     UserView:
       allOf:

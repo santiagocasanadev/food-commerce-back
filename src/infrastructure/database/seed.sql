@@ -1,32 +1,122 @@
-INSERT INTO catalogs (id, name, active)
-VALUES ('c1','Vegano',1);
+-- =========================================================
+-- Tenant Database Seed
+-- Food Commerce API
+--
+-- This seed is intended for each client/business database.
+-- It uses valid PostgreSQL syntax and UUID values.
+-- =========================================================
 
 INSERT INTO catalogs (id, name, active)
-VALUES ('c2','Proteico',1);
+VALUES
+  ('00000000-0000-0000-0000-000000000101', 'Vegano', TRUE),
+  ('00000000-0000-0000-0000-000000000102', 'Proteico', TRUE);
 
 INSERT INTO products (id, name, description, base_price, active, catalog_id)
-VALUES ('p1','Ensalada Vegana','100% vegetal',18,1,'c1');
+VALUES
+  (
+    '00000000-0000-0000-0000-000000000201',
+    'Ensalada Vegana',
+    '100% vegetal',
+    18.00,
+    TRUE,
+    '00000000-0000-0000-0000-000000000101'
+  );
 
 INSERT INTO inventory (product_id, available_quantity, reserved_quantity)
-VALUES ('p1',10,0);
+VALUES
+  ('00000000-0000-0000-0000-000000000201', 10, 0);
 
-INSERT INTO users (id, tenant_id, email, name, image_url, role, email_verified, created_at, updated_at)
-VALUES ('u1',NULL,'juan@mail.com','Juan Perez',NULL,'CUSTOMER',1,datetime('now'),datetime('now'));
+INSERT INTO users (
+  id,
+  tenant_id,
+  email,
+  name,
+  image_url,
+  role,
+  email_verified,
+  created_at,
+  updated_at
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000301',
+  NULL,
+  'juan@mail.com',
+  'Juan Perez',
+  NULL,
+  'CUSTOMER',
+  TRUE,
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+);
 
-INSERT INTO auth_identities (id, user_id, provider, provider_user_id, email, password_hash, created_at, updated_at)
-VALUES ('ai1','u1','email',NULL,'juan@mail.com','$2b$12$examplehashedpasswordvalue',datetime('now'),datetime('now'));
+INSERT INTO auth_identities (
+  id,
+  user_id,
+  provider,
+  provider_user_id,
+  email,
+  password_hash,
+  created_at,
+  updated_at
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000401',
+  '00000000-0000-0000-0000-000000000301',
+  'email',
+  NULL,
+  'juan@mail.com',
+  '$2b$12$PhDP13hfemh2qPmMgEOgoO9BXYRMDX0RxHe3uWbIIXmN2Ot8urZly',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+);
 
 INSERT INTO customers (id, user_id, role)
-VALUES ('c1','u1','CUSTOMER');
+VALUES (
+  '00000000-0000-0000-0000-000000000501',
+  '00000000-0000-0000-0000-000000000301',
+  'CUSTOMER'
+);
 
 INSERT INTO carts (id, customer_id, status)
-VALUES ('cart1','c1','ACTIVE');
+VALUES (
+  '00000000-0000-0000-0000-000000000601',
+  '00000000-0000-0000-0000-000000000501',
+  'ACTIVE'
+);
 
 INSERT INTO cart_items (id, cart_id, product_id, quantity, unit_price)
-VALUES ('ci1','cart1','p1',2,18);
+VALUES (
+  '00000000-0000-0000-0000-000000000701',
+  '00000000-0000-0000-0000-000000000601',
+  '00000000-0000-0000-0000-000000000201',
+  2,
+  18.00
+);
 
 INSERT INTO orders (id, customer_id, status, total, created_at)
-VALUES ('o1','c1','PAID',36,datetime('now'));
+VALUES (
+  '00000000-0000-0000-0000-000000000801',
+  '00000000-0000-0000-0000-000000000501',
+  'PAID',
+  36.00,
+  CURRENT_TIMESTAMP
+);
+
+INSERT INTO order_items (id, order_id, product_id, quantity, unit_price)
+VALUES (
+  '00000000-0000-0000-0000-000000000901',
+  '00000000-0000-0000-0000-000000000801',
+  '00000000-0000-0000-0000-000000000201',
+  2,
+  18.00
+);
 
 INSERT INTO loyalty_accounts (customer_id, points)
-VALUES ('c1',10);
+VALUES (
+  '00000000-0000-0000-0000-000000000501',
+  10
+);
+
+-- Default demo credentials for local/dev seed only:
+-- email: juan@mail.com
+-- password: Password123
