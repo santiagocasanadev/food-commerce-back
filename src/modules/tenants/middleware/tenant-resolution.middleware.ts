@@ -15,6 +15,21 @@ export class TenantResolutionMiddleware implements NestMiddleware {
   constructor(private readonly tenantRegistryService: TenantRegistryService) {}
 
   async use(req: Request, _res: Response, next: NextFunction) {
+    if (this.shouldBypassTenantResolution(req.originalUrl)) {
+      this.logger.debug(
+        `Bypassing tenant resolution for ${req.method} ${req.originalUrl}`,
+      );
+      return runWithTenantContext(
+        {
+          tenantId: null,
+          tenantSlug: null,
+          pool: null,
+          source: 'default',
+        },
+        () => next(),
+      );
+    }
+
     if (!this.tenantRegistryService.isEnabled()) {
       this.logger.debug(
         `Tenant resolution disabled for ${req.method} ${req.originalUrl}`,
@@ -86,6 +101,14 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         source: 'registry',
       },
       () => next(),
+    );
+  }
+
+  private shouldBypassTenantResolution(path: string) {
+    return (
+      path.startsWith('/api/v1/platform/') ||
+      path.startsWith('/api/v1/health/platform') ||
+      path.startsWith('/docs')
     );
   }
 }

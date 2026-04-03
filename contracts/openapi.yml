@@ -630,6 +630,35 @@ paths:
         '409':
           description: Platform tenant slug already exists
 
+  /platform/auth/login:
+    post:
+      tags: [Platform]
+      summary: Log in as a platform admin using the central platform database
+      operationId: loginPlatformAdmin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformLoginRequest'
+      responses:
+        '201':
+          description: Created
+        '401':
+          description: Invalid platform credentials
+
+  /platform/auth/me:
+    get:
+      tags: [Platform]
+      summary: Get the authenticated platform admin profile
+      operationId: getPlatformAdminMe
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: Unauthorized
+
   /platform/tenants/{id}:
     get:
       tags: [Platform]
@@ -1267,6 +1296,17 @@ components:
           type: string
         active:
           type: boolean
+
+    PlatformLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
 
     UpdatePlatformTenantRequest:
       type: object
