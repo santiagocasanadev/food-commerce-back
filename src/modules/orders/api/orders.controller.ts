@@ -1,8 +1,22 @@
-import { Controller, Post, Param, Patch, Req, Body, UseGuards, Headers, Query, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { OrdersService } from '../application/orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { Roles } from 'src/security/decorators/roles.decorator';
+import { RolesGuard } from 'src/security/guards/roles.guard';
+import { Role } from 'src/security/roles.enum';
 
+@UseGuards(RolesGuard)
+@Roles(Role.CUSTOMER)
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly service: OrdersService) { }

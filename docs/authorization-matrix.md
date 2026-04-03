@@ -145,6 +145,10 @@ This document maps the intended module ownership and allowed roles for the curre
 - Allowed:
   - public/guest for guest cart
   - `CUSTOMER` for authenticated cart
+- Not allowed:
+  - `TENANT_ADMIN`
+  - `TENANT_STAFF`
+  - `PLATFORM_ADMIN`
 - Operations:
   - Add item as guest or customer
   - View own active cart
