@@ -47,6 +47,9 @@ export class PlatformAuthService {
         email: admin.email,
         name: admin.name,
         role: Role.PLATFORM_ADMIN,
+        active: admin.active,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt,
       },
     };
   }
