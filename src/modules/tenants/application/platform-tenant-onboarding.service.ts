@@ -5,12 +5,13 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { Pool } from 'pg';
 import { BcryptPasswordHasher } from 'src/modules/auth/infrastructure/security/bcrypt-password-hasher';
 import { Role } from 'src/security/roles.enum';
 import { describeConnectionTarget } from '../utils/masked-connection';
 import { PlatformTenantRepository } from '../infrastructure/platform-tenant.repository.postgres';
+import { PlatformTenantConnectionService } from './platform-tenant-connection.service';
 import { TenantRegistryService } from './tenant-registry.service';
+import { Pool } from 'pg';
 
 @Injectable()
 export class PlatformTenantOnboardingService {
@@ -19,6 +20,7 @@ export class PlatformTenantOnboardingService {
   constructor(
     private readonly platformTenantRepository: PlatformTenantRepository,
     private readonly tenantRegistryService: TenantRegistryService,
+    private readonly platformTenantConnectionService: PlatformTenantConnectionService,
     private readonly passwordHasher: BcryptPasswordHasher,
   ) {}
 
@@ -56,7 +58,9 @@ export class PlatformTenantOnboardingService {
         )}`,
       );
 
-      await targetPool.query('SELECT 1');
+      await this.platformTenantConnectionService.testConnection({
+        dbConnectionUrl,
+      });
 
       const emailAvailability = await targetPool.query(
         `
@@ -183,6 +187,10 @@ export class PlatformTenantOnboardingService {
       this.logger.error(
         `Tenant onboarding failed for slug "${slug}": ${error?.message ?? error}`,
       );
+      if (error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
       throw new InternalServerErrorException('Tenant onboarding failed');
     } finally {
       await targetPool.end();

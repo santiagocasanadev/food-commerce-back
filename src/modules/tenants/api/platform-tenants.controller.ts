@@ -12,9 +12,11 @@ import { Roles } from 'src/security/decorators/roles.decorator';
 import { RolesGuard } from 'src/security/guards/roles.guard';
 import { Role } from 'src/security/roles.enum';
 import { PlatformTenantsService } from '../application/platform-tenants.service';
+import { PlatformTenantConnectionService } from '../application/platform-tenant-connection.service';
 import { PlatformTenantOnboardingService } from '../application/platform-tenant-onboarding.service';
 import { CreatePlatformTenantDto } from '../dto/create-platform-tenant.dto';
 import { OnboardPlatformTenantDto } from '../dto/onboard-platform-tenant.dto';
+import { TestPlatformTenantConnectionDto } from '../dto/test-platform-tenant-connection.dto';
 import { UpdatePlatformTenantDto } from '../dto/update-platform-tenant.dto';
 
 @UseGuards(RolesGuard)
@@ -23,6 +25,7 @@ import { UpdatePlatformTenantDto } from '../dto/update-platform-tenant.dto';
 export class PlatformTenantsController {
   constructor(
     private readonly platformTenantsService: PlatformTenantsService,
+    private readonly platformTenantConnectionService: PlatformTenantConnectionService,
     private readonly platformTenantOnboardingService: PlatformTenantOnboardingService,
   ) {}
 
@@ -39,6 +42,11 @@ export class PlatformTenantsController {
   @Post()
   create(@Body() dto: CreatePlatformTenantDto) {
     return this.platformTenantsService.create(dto);
+  }
+
+  @Post('test-connection')
+  testConnection(@Body() dto: TestPlatformTenantConnectionDto) {
+    return this.platformTenantConnectionService.testConnection(dto);
   }
 
   @Post('onboard')

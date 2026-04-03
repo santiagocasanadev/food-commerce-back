@@ -651,6 +651,27 @@ paths:
         '409':
           description: Platform tenant slug already exists or initial tenant admin email already exists
 
+  /platform/tenants/test-connection:
+    post:
+      tags: [Platform]
+      summary: Validate a tenant database connection string without persisting anything
+      operationId: testPlatformTenantConnection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestPlatformTenantConnectionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformTenantConnectionTestResult'
+        '500':
+          description: Tenant connection test failed
+
   /platform/admins:
     get:
       tags: [Platform]
@@ -1456,6 +1477,13 @@ components:
         active:
           type: boolean
 
+    TestPlatformTenantConnectionRequest:
+      type: object
+      required: [dbConnectionUrl]
+      properties:
+        dbConnectionUrl:
+          type: string
+
     PlatformLoginRequest:
       type: object
       required: [email, password]
@@ -1667,6 +1695,35 @@ components:
           $ref: '#/components/schemas/PlatformTenant'
         initialAdmin:
           $ref: '#/components/schemas/TenantBootstrapAdmin'
+
+    ConnectionTarget:
+      type: object
+      required: [protocol, username, host, port, database]
+      properties:
+        protocol:
+          type: string
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        host:
+          type: string
+          nullable: true
+        port:
+          type: string
+          nullable: true
+        database:
+          type: string
+          nullable: true
+
+    PlatformTenantConnectionTestResult:
+      type: object
+      required: [success, target]
+      properties:
+        success:
+          type: boolean
+        target:
+          $ref: '#/components/schemas/ConnectionTarget'
 
     PlatformAuthResponse:
       type: object
