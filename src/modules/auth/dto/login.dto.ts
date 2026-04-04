@@ -8,7 +8,7 @@ export enum LoginType {
 
 export class LoginDto {
   @IsEnum(LoginType)
-  type: LoginType;
+  type!: LoginType;
 
   @ValidateIf((dto: LoginDto) => dto.type === LoginType.EMAIL)
   @IsEmail()

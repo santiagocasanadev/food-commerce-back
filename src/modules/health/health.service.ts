@@ -50,7 +50,7 @@ export class HealthService {
         scope: 'platform',
         checkedAt: new Date().toISOString(),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       throw new ServiceUnavailableException({
         status: 'error',
         scope: 'platform',
@@ -74,7 +74,7 @@ export class HealthService {
         source: tenantContext?.source ?? 'default',
         checkedAt: new Date().toISOString(),
       };
-    } catch (error) {
+    } catch (error: unknown) {
       throw new ServiceUnavailableException({
         status: 'error',
         scope: 'tenant',

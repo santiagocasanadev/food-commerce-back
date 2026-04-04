@@ -67,7 +67,7 @@ export class SignupEmailUseCase {
 
         try {
             await this.sendVerificationEmailUseCase.execute(user.id);
-        } catch (error) {
+        } catch (error: unknown) {
             const message =
                 error instanceof Error ? error.message : 'Unknown email provider error';
             this.logger.warn(

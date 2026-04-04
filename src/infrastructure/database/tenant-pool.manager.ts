@@ -64,7 +64,7 @@ export async function getOrCreateTenantPool(
         );
       }
       return pool;
-    } catch (error) {
+    } catch (error: unknown) {
       lastError = error;
       await pool.end().catch(() => undefined);
       logger.warn(

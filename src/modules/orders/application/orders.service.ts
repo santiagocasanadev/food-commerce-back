@@ -79,7 +79,7 @@ export class OrdersService {
             item.quantity,
             client
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
           if (error instanceof Error && error.message === 'Inventory not found') {
             throw new BadRequestException(`Inventory not found for product ${item.productId}`);
           }
@@ -124,7 +124,7 @@ export class OrdersService {
 
       try {
         order.advanceStatus();
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error instanceof Error && error.message === 'Invalid status transition') {
           throw new BadRequestException('Invalid status transition');
         }

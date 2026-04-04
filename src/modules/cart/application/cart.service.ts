@@ -52,12 +52,13 @@ export class CartService {
       this.logger.log(`Item added to cart ${cart.id}`);
       return cart;
 
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof BadRequestException) {
         throw error;
       }
 
-      this.logger.error(`Error adding item to cart`, error.stack);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error adding item to cart`, stack);
 
       throw new InternalServerErrorException('Could not add item to cart');
     }

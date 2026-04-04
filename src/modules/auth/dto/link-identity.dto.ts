@@ -3,8 +3,8 @@ import { AuthProvider } from '../domain/authProviders';
 
 export class LinkIdentityDto {
   @IsEnum(AuthProvider)
-  provider: AuthProvider;
+  provider!: AuthProvider;
 
   @IsString()
-  token: string;
+  token!: string;
 }

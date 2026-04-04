@@ -135,7 +135,7 @@ export class PlatformTenantOnboardingService {
         );
 
         await client.query('COMMIT');
-      } catch (error) {
+      } catch (error: unknown) {
         await client.query('ROLLBACK');
         throw error;
       } finally {
@@ -165,7 +165,7 @@ export class PlatformTenantOnboardingService {
           role: Role.TENANT_ADMIN,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (createdTenantId) {
         await this.platformTenantRepository.deleteById(createdTenantId);
         this.tenantRegistryService.invalidateTenantCache({
@@ -178,14 +178,14 @@ export class PlatformTenantOnboardingService {
         throw error;
       }
 
-      if (error?.code === '23505') {
+      if (isPgUniqueViolation(error)) {
         throw new ConflictException(
           'Initial tenant admin email already exists in tenant database',
         );
       }
 
       this.logger.error(
-        `Tenant onboarding failed for slug "${slug}": ${error?.message ?? error}`,
+        `Tenant onboarding failed for slug "${slug}": ${getErrorMessage(error)}`,
       );
       if (error instanceof InternalServerErrorException) {
         throw error;
@@ -200,4 +200,17 @@ export class PlatformTenantOnboardingService {
 
 function normalizeSlug(slug: string) {
   return slug.trim().toLowerCase();
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isPgUniqueViolation(error: unknown): error is { code: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
 }

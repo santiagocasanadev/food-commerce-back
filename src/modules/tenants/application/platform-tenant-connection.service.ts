@@ -31,11 +31,9 @@ export class PlatformTenantConnectionService {
         success: true,
         target,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger.error(
-        `Tenant connection test failed for ${JSON.stringify(target)}: ${
-          error?.message ?? error
-        }`,
+        `Tenant connection test failed for ${JSON.stringify(target)}: ${getErrorMessage(error)}`,
       );
 
       throw new InternalServerErrorException({
@@ -46,4 +44,8 @@ export class PlatformTenantConnectionService {
       await pool.end();
     }
   }
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

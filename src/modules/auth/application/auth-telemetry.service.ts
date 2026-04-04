@@ -52,7 +52,7 @@ export class AuthTelemetryService {
       );
 
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       const durationMs = Date.now() - startedAt;
       this.recordMetric(useCase, durationMs, 'failure');
 

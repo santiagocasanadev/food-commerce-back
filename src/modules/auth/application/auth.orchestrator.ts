@@ -184,7 +184,7 @@ export class AuthOrchestrator {
     if (guestId && customer) {
       try {
         await this.cartService.mergeCart(guestId, customer.id);
-      } catch (error) {
+      } catch (error: unknown) {
         if (isMissingGuestCartError(error)) {
           this.logger.warn(
             `Guest cart merge skipped for guestId "${guestId}" and customer "${customer.id}" because no active guest cart exists`,
@@ -207,12 +207,19 @@ function isMissingGuestCartError(error: unknown) {
   }
 
   const response = error.getResponse();
+  const responseWithMessage = isObjectWithMessage(response) ? response.message : undefined;
   const message =
     typeof response === 'string'
       ? response
-      : Array.isArray((response as any)?.message)
-      ? (response as any).message.join(' ')
-      : (response as any)?.message;
+      : Array.isArray(responseWithMessage)
+      ? responseWithMessage.join(' ')
+      : responseWithMessage;
 
   return typeof message === 'string' && message.includes('No active cart for guest');
+}
+
+function isObjectWithMessage(
+  value: unknown,
+): value is { message?: string | string[] } {
+  return typeof value === 'object' && value !== null && 'message' in value;
 }

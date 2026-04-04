@@ -13,7 +13,7 @@ export class UnitOfWork {
       const result = await fn(client);
       await client.query('COMMIT');
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
     } finally {

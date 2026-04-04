@@ -64,7 +64,7 @@ export class InventoryService {
 
     try {
       await this.repository.adjust(productId, quantity);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof Error && error.message === 'Inventory cannot be negative') {
         throw new BadRequestException('Inventory cannot be negative');
       }

@@ -28,7 +28,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (typeof res === 'string') {
         message = res;
       } else if (typeof res === 'object' && res !== null) {
-        message = (res as any).message ?? res;
+        const responseMessage = getResponseMessage(res);
+
+        message =
+          typeof responseMessage === 'string'
+            ? responseMessage
+            : Array.isArray(responseMessage)
+            ? responseMessage.join(', ')
+            : message;
         detail = res as Record<string, unknown>;
       }
     } else if (exception instanceof Error) {
@@ -61,4 +68,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       ...(isDevelopment && stack ? { stack } : {}),
     });
   }
+}
+
+function getResponseMessage(
+  value: object,
+): string | string[] | undefined {
+  const candidate = value as { message?: unknown };
+  const message = candidate.message;
+
+  return typeof message === 'string' || Array.isArray(message)
+    ? (message as string | string[])
+    : undefined;
 }
