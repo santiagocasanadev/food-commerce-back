@@ -17,11 +17,11 @@ export class ProductMapper {
   static toPersistence(product: Product) {
     return {
       id: product.id,
-      name: product.name,
-      description: product.description,
+      name: product.getName(),
+      description: product.getDescription(),
       base_price: product.getBasePrice(),
       active: product.getStatus(),
-      catalog_id: product.catalogId
+      catalog_id: product.getCatalogId()
     };
   }
 }

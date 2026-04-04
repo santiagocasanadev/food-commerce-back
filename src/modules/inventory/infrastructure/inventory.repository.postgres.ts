@@ -18,6 +18,23 @@ export class PostgresInventoryRepository implements InventoryRepository {
     return InventoryMapper.toDomain(rows[0]);
   }
 
+  async save(inventory: any, client?: PoolClient): Promise<void> {
+    const executor = client ?? getPgPool();
+    const data = InventoryMapper.toPersistence(inventory);
+
+    await executor.query(
+      `
+      INSERT INTO inventory (product_id, available_quantity, reserved_quantity)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (product_id)
+      DO UPDATE SET
+        available_quantity = $2,
+        reserved_quantity = $3
+      `,
+      [data.product_id, data.available_quantity, data.reserved_quantity],
+    );
+  }
+
   async reserve(productId: string, quantity: number, client: PoolClient): Promise<void> {
     const result = await client.query(
       `

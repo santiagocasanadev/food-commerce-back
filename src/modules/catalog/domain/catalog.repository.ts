@@ -5,4 +5,5 @@ export interface CatalogRepository {
     findAll(): Promise<Catalog[]>;
     findById(id: string): Promise<Catalog | null>;
     save(catalog: Catalog, client?:PoolClient): Promise<void>;
+    deleteById(id: string, client?: PoolClient): Promise<void>;
 }

@@ -1,8 +1,9 @@
-import { Module, Post } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { InventoryController } from './api/inventory.controller';
 import { InventoryService } from './application/inventory.service';
 import { AdminInventoryController } from './admin/admin-inventory.controller';
 import { PostgresInventoryRepository } from './infrastructure/inventory.repository.postgres';
+import { PostgresProductRepository } from '../products/infrastructure/product.repository.postgres';
 
 @Module({
   controllers: [
@@ -14,7 +15,10 @@ import { PostgresInventoryRepository } from './infrastructure/inventory.reposito
       provide: 'InventoryRepository',
       useClass: PostgresInventoryRepository ,
     },
-    InventoryService
+    {
+      provide: 'ProductsRepository',
+      useClass: PostgresProductRepository,
+    }
   ],
     exports: ['InventoryRepository'],
 })

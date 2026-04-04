@@ -3,6 +3,7 @@ import { ProductsController } from './api/products.controller';
 import { ProductsService } from './application/products.service';
 import { AdminProductsController } from './admin/admin-products.controller';
 import { PostgresProductRepository } from './infrastructure/product.repository.postgres';
+import { PostgresCatalogRepository } from '../catalog/infrastructure/catalog.repository.postgres';
 
 @Module({
   controllers: [ProductsController, AdminProductsController],
@@ -11,6 +12,10 @@ import { PostgresProductRepository } from './infrastructure/product.repository.p
     {
       provide: 'ProductsRepository',
       useClass: PostgresProductRepository ,
+    },
+    {
+      provide: 'CatalogRepository',
+      useClass: PostgresCatalogRepository,
     },
   ],
 })

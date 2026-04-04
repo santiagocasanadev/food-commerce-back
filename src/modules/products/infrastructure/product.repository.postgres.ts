@@ -57,4 +57,15 @@ export class PostgresProductRepository implements ProductsRepository {
       ]
     );
   }
+
+  async deleteById(id: string, client?: PoolClient): Promise<void> {
+    const executor = client ?? getPgPool();
+
+    await executor.query(
+      `
+      DELETE FROM products WHERE id = $1
+      `,
+      [id],
+    );
+  }
 }

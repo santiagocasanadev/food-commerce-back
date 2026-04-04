@@ -46,4 +46,15 @@ export class PostgresCatalogRepository implements CatalogRepository {
       [data.id, data.name, data.active]
     );
   }
+
+  async deleteById(id: string, client?: PoolClient): Promise<void> {
+    const executor = client ?? getPgPool();
+
+    await executor.query(
+      `
+      DELETE FROM catalogs WHERE id = $1
+      `,
+      [id],
+    );
+  }
 }

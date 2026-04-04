@@ -1133,6 +1133,148 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '400':
+          description: Invalid quantity or inventory would become negative
+        '404':
+          description: Inventory not found
+
+  /admin/inventory/{productId}:
+    get:
+      tags: [Inventory]
+      summary: Get inventory by product id for backoffice
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '404':
+          description: Inventory not found
+    put:
+      tags: [Inventory]
+      summary: Create or replace the inventory row for a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInventoryRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inventory'
+        '400':
+          description: Invalid product or invalid quantity
+
+  /admin/catalogs:
+    get:
+      tags: [Catalog]
+      summary: List catalogs for backoffice
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Catalog'
+    post:
+      tags: [Catalog]
+      summary: Create catalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCatalogRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalog'
+
+  /admin/catalogs/{id}:
+    get:
+      tags: [Catalog]
+      summary: Get catalog by id for backoffice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalog'
+        '404':
+          description: Catalog not found
+    patch:
+      tags: [Catalog]
+      summary: Update catalog metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCatalogRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalog'
+        '404':
+          description: Catalog not found
+    delete:
+      tags: [Catalog]
+      summary: Delete catalog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
 
   /admin/products/{id}/price:
     patch:
@@ -1164,6 +1306,100 @@ paths:
                 $ref: '#/components/schemas/Product'
         '404':
           description: Product not found
+
+  /admin/products:
+    get:
+      tags: [Products]
+      summary: List products for backoffice
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags: [Products]
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid catalog or invalid product data
+
+  /admin/products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by id for backoffice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    patch:
+      tags: [Products]
+      summary: Update product metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid catalog or invalid product data
+        '404':
+          description: Product not found
+    delete:
+      tags: [Products]
+      summary: Delete product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
 
   /admin/catalogs/{id}/activate:
     patch:
@@ -1454,6 +1690,63 @@ components:
           type: string
         active:
           type: boolean
+
+    CreateCatalogRequest:
+      type: object
+      required: [name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    UpdateCatalogRequest:
+      type: object
+      properties:
+        name:
+          type: string
+
+    CreateProductRequest:
+      type: object
+      required: [name, basePrice, catalogId]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        basePrice:
+          type: number
+          format: double
+        catalogId:
+          type: string
+
+    UpdateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        basePrice:
+          type: number
+          format: double
+        catalogId:
+          type: string
+
+    SetInventoryRequest:
+      type: object
+      required: [availableQuantity, reservedQuantity]
+      properties:
+        availableQuantity:
+          type: integer
+          minimum: 0
+        reservedQuantity:
+          type: integer
+          minimum: 0
 
     OnboardPlatformTenantRequest:
       type: object

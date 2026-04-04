@@ -13,8 +13,8 @@ export class CatalogMapper {
   static toPersistence(catalog: Catalog) {
     return {
       id: catalog.id,
-      name: catalog.name,
-      active: catalog.getStatus
+      name: catalog.getName(),
+      active: catalog.getStatus()
     };
   }
 }

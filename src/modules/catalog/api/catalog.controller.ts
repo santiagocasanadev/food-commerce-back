@@ -9,11 +9,6 @@ export class CatalogController {
     @Public()
     @Get()
     list() {
-        try {
-            return this.service.list();
-        } catch (e) {
-            console.error(e);
-            throw e;
-        }
-    }    
+        return this.service.list();
+    }
 }

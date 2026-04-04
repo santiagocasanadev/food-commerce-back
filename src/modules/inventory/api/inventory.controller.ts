@@ -16,7 +16,7 @@ export class InventoryController {
     return {
       productId,
       availableQuantity: inventory.getAvailable(),
-      reservedQuantity: 0
+      reservedQuantity: inventory.getReserved()
     };
   }
 }
