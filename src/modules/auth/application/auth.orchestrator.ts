@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { CartService } from 'src/modules/cart/application/cart.service';
 import { CustomerContextService } from 'src/modules/customers/application/customer-context.service';
 import { AuthService } from './auth.service';
@@ -6,6 +6,8 @@ import { AuthProvider } from '../domain/authProviders';
 
 @Injectable()
 export class AuthOrchestrator {
+  private readonly logger = new Logger(AuthOrchestrator.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly customerContextService: CustomerContextService,
@@ -180,11 +182,37 @@ export class AuthOrchestrator {
           : null
         : await this.customerContextService.ensureCustomerByUserId(authResult.userId);
     if (guestId && customer) {
-      await this.cartService.mergeCart(guestId, customer.id);
+      try {
+        await this.cartService.mergeCart(guestId, customer.id);
+      } catch (error) {
+        if (isMissingGuestCartError(error)) {
+          this.logger.warn(
+            `Guest cart merge skipped for guestId "${guestId}" and customer "${customer.id}" because no active guest cart exists`,
+          );
+        } else {
+          throw error;
+        }
+      }
     }
     return {
       ...authResult,
       customerId: customer?.id ?? null,
     };
   }
+}
+
+function isMissingGuestCartError(error: unknown) {
+  if (!(error instanceof BadRequestException)) {
+    return false;
+  }
+
+  const response = error.getResponse();
+  const message =
+    typeof response === 'string'
+      ? response
+      : Array.isArray((response as any)?.message)
+      ? (response as any).message.join(' ')
+      : (response as any)?.message;
+
+  return typeof message === 'string' && message.includes('No active cart for guest');
 }

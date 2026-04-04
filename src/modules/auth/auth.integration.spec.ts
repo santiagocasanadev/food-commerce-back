@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import * as crypto from 'crypto';
@@ -41,6 +41,7 @@ class InMemoryUserRepository {
   }
 
   async create(data: {
+    tenantId?: string | null;
     email?: string | null;
     name: string;
     imageUrl?: string | null;
@@ -58,6 +59,7 @@ class InMemoryUserRepository {
     const now = new Date();
     const user = new User(
       crypto.randomUUID(),
+      data.tenantId ?? null,
       data.email ?? null,
       data.name,
       data.imageUrl ?? null,
@@ -78,8 +80,20 @@ class InMemoryUserRepository {
     return user;
   }
 
+  async findAll() {
+    return [...this.users.values()];
+  }
+
+  async findByTenantId(tenantId: string) {
+    return [...this.users.values()].filter((user) => user.getTenantId() === tenantId);
+  }
+
   async save(user: User) {
     this.users.set(user.id, user);
+  }
+
+  async deleteById(id: string) {
+    this.users.delete(id);
   }
 }
 
@@ -311,7 +325,12 @@ class FakeCustomerContextService {
 }
 
 class FakeCartService {
+  shouldThrowMissingGuestCart = false;
+
   async mergeCart() {
+    if (this.shouldThrowMissingGuestCart) {
+      throw new BadRequestException('No active cart for guest');
+    }
     return;
   }
 }
@@ -369,6 +388,7 @@ describe('Auth integration', () => {
   let emailVerificationRepository: InMemoryEmailVerificationTokenRepository;
   let passwordResetRepository: InMemoryPasswordResetTokenRepository;
   let customerContextService: FakeCustomerContextService;
+  let cartService: FakeCartService;
 
   beforeAll(async () => {
     mailService = new FakeMailService();
@@ -378,6 +398,7 @@ describe('Auth integration', () => {
     emailVerificationRepository = new InMemoryEmailVerificationTokenRepository();
     passwordResetRepository = new InMemoryPasswordResetTokenRepository();
     customerContextService = new FakeCustomerContextService();
+    cartService = new FakeCartService();
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AuthModule],
@@ -401,7 +422,7 @@ describe('Auth integration', () => {
       .overrideProvider(CustomerContextService)
       .useValue(customerContextService)
       .overrideProvider(CartService)
-      .useValue(new FakeCartService())
+      .useValue(cartService)
       .overrideProvider(OAuthProviderFactory)
       .useValue(new FakeOAuthProviderFactory())
       .compile();
@@ -425,6 +446,7 @@ describe('Auth integration', () => {
     emailVerificationRepository.tokens.clear();
     passwordResetRepository.tokens.clear();
     customerContextService.customers.clear();
+    cartService.shouldThrowMissingGuestCart = false;
     app.get(AuthTelemetryService).reset();
   });
 
@@ -449,6 +471,23 @@ describe('Auth integration', () => {
     expect(response.body.customerId).toBeTruthy();
     expect(mailService.sent).toHaveLength(1);
     expect(mailService.sent[0].subject).toContain('Verify');
+  });
+
+  it('signup ignores missing guest cart and still creates the user', async () => {
+    cartService.shouldThrowMissingGuestCart = true;
+
+    const response = await request(app.getHttpServer())
+      .post('/auth/signup/email')
+      .set('x-guest-id', 'guest-missing')
+      .send({
+        email: 'guest-header@example.com',
+        password: 'Password123',
+      })
+      .expect(201);
+
+    expect(response.body.user.email).toBe('guest-header@example.com');
+    expect(response.body.customerId).toBeTruthy();
+    expect(await userRepository.findByEmail('guest-header@example.com')).toBeTruthy();
   });
 
   it('supports login, refresh and logout', async () => {
