@@ -30,8 +30,8 @@ export class CartMapper {
 
     return {
       id: cart.id,
-      customer_id: cart.getCustomerId,
-      guest_id: cart.getGuestId,
+      customer_id: cart.getCustomerId(),
+      guest_id: cart.getGuestId(),
       status: cart.getStatus(),
     };
   }

@@ -1,8 +1,9 @@
-import { Module, Post } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { CartController } from './api/cart.controller';
 import { CartService } from './application/cart.service';
 import { PricingModule } from '../pricing/pricing.module';
 import { PostgresCartRepository } from './infrastructure/cart.repository.postgres';
+import { PostgresProductRepository } from '../products/infrastructure/product.repository.postgres';
 
 @Module({
   imports: [PricingModule],
@@ -12,6 +13,10 @@ import { PostgresCartRepository } from './infrastructure/cart.repository.postgre
     {
       provide: 'CartRepository',
       useClass: PostgresCartRepository,
+    },
+    {
+      provide: 'ProductsRepository',
+      useClass: PostgresProductRepository,
     },
   ],
   exports: ['CartRepository', CartService],

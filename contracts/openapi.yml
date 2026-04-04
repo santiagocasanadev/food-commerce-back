@@ -1001,7 +1001,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CartItem'
+              $ref: '#/components/schemas/AddCartItemRequest'
       responses:
         '200':
           description: OK
@@ -1009,6 +1009,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cart'
+        '400':
+          description: Product not found or inactive
 
   /orders:
     post:
@@ -1024,6 +1026,8 @@ paths:
                 $ref: '#/components/schemas/Order'
         '403':
           description: Only customers can create orders
+        '400':
+          description: No active cart, missing Idempotency-Key or insufficient stock
     get:
       tags: [Orders]
       summary: List orders for the authenticated customer
@@ -2281,6 +2285,16 @@ components:
         unitbasePrice:
           type: number
           format: double
+
+    AddCartItemRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
 
     Order:
       type: object

@@ -1088,7 +1088,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2,\n  \"basePrice\": 18\n}"
+                            "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2\n}"
                         },
                         "url": "{{baseUrl}}/cart"
                     }

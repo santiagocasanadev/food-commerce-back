@@ -36,8 +36,7 @@ export class CartController {
       customerId,
       guestId,
       dto.productId,
-      dto.quantity,
-      dto.basePrice
+      dto.quantity
     );
   }
 

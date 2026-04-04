@@ -1,8 +1,14 @@
-import { PricingService } from "src/modules/pricing/application/pricing.service";
 import type { CartRepository } from "../domain/cart.repository";
 import { Cart } from "../domain/cart.entity";
-import { BadRequestException, Inject, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import { CartItem } from "../domain/cart-item.entity";
+import type { ProductsRepository } from "src/modules/products/domain/products.repository";
 
 @Injectable()
 export class CartService {
@@ -11,15 +17,16 @@ export class CartService {
 
   constructor(
     @Inject('CartRepository')
-    private readonly repository: CartRepository
+    private readonly repository: CartRepository,
+    @Inject('ProductsRepository')
+    private readonly productsRepository: ProductsRepository,
   ) { }
 
   async addItem(
     customerId: string | null,
     guestId: string | null,
     productId: string,
-    quantity: number,
-    basePrice: number
+    quantity: number
   ): Promise<Cart> {
 
     if (!customerId && !guestId) {
@@ -31,15 +38,24 @@ export class CartService {
     );
 
     try {
+      const product = await this.productsRepository.findById(productId);
+
+      if (!product || !product.getStatus()) {
+        throw new BadRequestException('Product not found or inactive');
+      }
+
       const cart = await this.getOrCreateCart(customerId, guestId);
       cart.addItem(
-        new CartItem(productId, quantity, basePrice)
+        new CartItem(productId, quantity, product.getBasePrice())
       );
       await this.repository.save(cart);
       this.logger.log(`Item added to cart ${cart.id}`);
       return cart;
 
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
 
       this.logger.error(`Error adding item to cart`, error.stack);
 

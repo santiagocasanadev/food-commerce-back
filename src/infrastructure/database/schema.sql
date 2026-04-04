@@ -155,14 +155,18 @@ CREATE INDEX idx_customers_user_id ON customers(user_id);
 
 CREATE TABLE carts (
   id UUID PRIMARY KEY,
-  customer_id UUID NOT NULL,
+  customer_id UUID,
+  guest_id VARCHAR(255),
   status VARCHAR(50) NOT NULL,
+  CONSTRAINT chk_carts_owner
+    CHECK (customer_id IS NOT NULL OR guest_id IS NOT NULL),
   CONSTRAINT fk_carts_customer
     FOREIGN KEY (customer_id)
     REFERENCES customers(id)
 );
 
 CREATE INDEX idx_carts_customer_id ON carts(customer_id);
+CREATE INDEX idx_carts_guest_id ON carts(guest_id);
 
 CREATE TABLE cart_items (
   id UUID PRIMARY KEY,
@@ -187,6 +191,7 @@ CREATE TABLE orders (
   status VARCHAR(50) NOT NULL,
   total NUMERIC(10,2) NOT NULL,
   created_at TIMESTAMP NOT NULL,
+  idempotency_key VARCHAR(255) UNIQUE,
   CONSTRAINT fk_orders_customer
     FOREIGN KEY (customer_id)
     REFERENCES customers(id)

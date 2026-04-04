@@ -6,7 +6,7 @@ import { LoyaltyService } from "src/modules/loyalty/application/loyalty.service"
 import { PricingService } from "src/modules/pricing/application/pricing.service";
 import { Order } from "../domain/orders.entity";
 import { OrderItem } from "../domain/order-item.entity";
-import { BadRequestException, Inject, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { UnitOfWork } from "src/infrastructure/database/unit-of-work";
 import { PricingResult } from "src/modules/pricing/domain/pricing-result";
 import { PaginatedResponse } from "src/common/dto/paginated-response.dto";
@@ -73,11 +73,21 @@ export class OrdersService {
 
       // 5. Reservar inventario (concurrency-safe)
       for (const item of items) {
-        await this.inventoryRepository.reserve(
-          item.productId,
-          item.quantity,
-          client
-        );
+        try {
+          await this.inventoryRepository.reserve(
+            item.productId,
+            item.quantity,
+            client
+          );
+        } catch (error: any) {
+          if (error instanceof Error && error.message === 'Inventory not found') {
+            throw new BadRequestException(`Inventory not found for product ${item.productId}`);
+          }
+          if (error instanceof Error && error.message === 'Insufficient stock') {
+            throw new BadRequestException(`Insufficient stock for product ${item.productId}`);
+          }
+          throw error;
+        }
       }
 
       // 6. Crear orden (precio final ya calculado)
@@ -109,10 +119,17 @@ export class OrdersService {
 
       const order = await this.orderRepository.findById(orderId, client);
       if (!order) {
-        throw new BadRequestException('Order not found');
+        throw new NotFoundException('Order not found');
       }
 
-      order.advanceStatus();
+      try {
+        order.advanceStatus();
+      } catch (error: any) {
+        if (error instanceof Error && error.message === 'Invalid status transition') {
+          throw new BadRequestException('Invalid status transition');
+        }
+        throw error;
+      }
 
       if (order.getStatus() === 'DELIVERED') {
 
